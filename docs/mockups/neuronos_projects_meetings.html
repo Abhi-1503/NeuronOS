@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NeuronOS — Projects &amp; Meetings</title>
+<style>
+  :root{
+    --bg:#F6F7FB;
+    --card:#FFFFFF;
+    --border:#EAECF2;
+    --text:#1B1D28;
+    --text-dim:#6B7080;
+    --text-faint:#9498A6;
+    --primary:#6C5CE7;
+    --primary-dark:#5A48D8;
+    --primary-tint:#F0EDFF;
+    --green:#1DAE6E;
+    --green-tint:#E9F9F1;
+    --amber:#E58A00;
+    --amber-tint:#FFF4E0;
+    --red:#E14B4B;
+    --red-tint:#FDECEC;
+    --blue:#2E7DD1;
+    --blue-tint:#EAF3FC;
+    --radius:14px;
+    --shadow:0 1px 2px rgba(20,20,43,.04), 0 8px 24px rgba(20,20,43,.05);
+    font-family:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--text);}
+  .screen{
+    display:grid;
+    grid-template-columns:220px 1fr 300px;
+    min-height:100vh;
+    border-bottom:10px solid var(--bg);
+  }
+  .screen + .screen{margin-top:2px;}
+
+  /* SIDEBAR */
+  .sidebar{background:#fff; border-right:1px solid var(--border); padding:20px 14px; display:flex; flex-direction:column;}
+  .logo{display:flex; align-items:center; gap:8px; padding:4px 8px 22px 8px;}
+  .logo .mark{width:26px; height:26px; border-radius:8px; background:linear-gradient(135deg,#8B7CF6,#5A48D8); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:14px;}
+  .logo .name{font-weight:700; font-size:15px; letter-spacing:-.2px;}
+  .nav{display:flex; flex-direction:column; gap:2px;}
+  .nav a{
+    display:flex; align-items:center; gap:10px;
+    padding:9px 10px; border-radius:9px;
+    color:var(--text-dim); font-size:13.5px; font-weight:500;
+    text-decoration:none;
+  }
+  .nav a svg{width:16px; height:16px; flex-shrink:0;}
+  .nav a.active{background:var(--primary-tint); color:var(--primary-dark); font-weight:600;}
+  .sidebar-footer{margin-top:auto; padding-top:16px;}
+  .health-card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px;}
+  .health-card .label{font-size:11px; color:var(--text-faint); font-weight:600; text-transform:uppercase; letter-spacing:.4px;}
+  .health-card .score{font-size:22px; font-weight:700; margin-top:4px;}
+  .health-card .badge{display:inline-block; margin-top:4px; background:var(--green-tint); color:var(--green); font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px;}
+  .sparkline{margin-top:10px;}
+  .user-row{display:flex; align-items:center; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid var(--border);}
+  .avatar-sm{width:26px; height:26px; border-radius:50%; background:#DCD6FA; flex-shrink:0;}
+  .user-row .who{font-size:12.5px; font-weight:600;}
+  .user-row .org{font-size:11px; color:var(--text-faint);}
+
+  /* MAIN */
+  .main{padding:26px 30px;}
+  .main-head{display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:20px;}
+  .main-head h1{font-size:22px; font-weight:700; letter-spacing:-.3px;}
+  .main-head p{font-size:13px; color:var(--text-dim); margin-top:4px;}
+  .head-actions{display:flex; align-items:center; gap:10px;}
+  .search{display:flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--border); border-radius:10px; padding:8px 12px; font-size:13px; color:var(--text-faint); width:230px;}
+  .btn-primary{background:var(--primary); color:#fff; border:none; border-radius:10px; padding:9px 16px; font-size:13.5px; font-weight:600; display:flex; align-items:center; gap:6px; cursor:pointer;}
+
+  .stat-row{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px;}
+  .stat-card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:16px;}
+  .stat-card .label{font-size:12px; color:var(--text-dim); font-weight:600;}
+  .stat-card .value{font-size:22px; font-weight:700; margin-top:6px;}
+  .stat-card .delta{font-size:11.5px; font-weight:600; margin-top:4px;}
+  .delta.up{color:var(--green);} .delta.down{color:var(--red);} .delta.flat{color:var(--text-faint);}
+
+  .tabs{display:flex; gap:18px; border-bottom:1px solid var(--border); margin-bottom:14px;}
+  .tabs span{font-size:13px; font-weight:600; color:var(--text-faint); padding-bottom:10px;}
+  .tabs span.on{color:var(--primary); border-bottom:2px solid var(--primary);}
+
+  .list{display:flex; flex-direction:column; gap:10px;}
+  .row-card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; display:grid; grid-template-columns:2.1fr 1fr 1fr 1.3fr auto; align-items:center; gap:12px;}
+  .proj-name{font-size:13.5px; font-weight:700;}
+  .proj-sub{font-size:11.5px; color:var(--text-faint); margin-top:2px;}
+  .pill{display:inline-block; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; width:fit-content;}
+  .pill.green{background:var(--green-tint); color:var(--green);}
+  .pill.amber{background:var(--amber-tint); color:var(--amber);}
+  .pill.red{background:var(--red-tint); color:var(--red);}
+  .pill.blue{background:var(--blue-tint); color:var(--blue);}
+  .meta-label{font-size:10.5px; color:var(--text-faint); font-weight:600; text-transform:uppercase; letter-spacing:.3px;}
+  .meta-value{font-size:12.5px; font-weight:600; margin-top:2px;}
+  .progress-track{background:#EEF0F5; border-radius:20px; height:6px; width:100%; margin-top:6px; overflow:hidden;}
+  .progress-fill{height:100%; border-radius:20px; background:var(--primary);}
+  .avatars{display:flex;}
+  .avatars .avatar-sm{margin-left:-6px; border:2px solid #fff;}
+  .avatars .avatar-sm:first-child{margin-left:0;}
+  .more-btn{border:1px solid var(--border); background:#fff; border-radius:8px; width:28px; height:28px; color:var(--text-faint); font-weight:700; cursor:pointer;}
+
+  /* meeting-specific rows */
+  .meeting-card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; display:grid; grid-template-columns:64px 1.6fr 1.4fr 1fr auto; align-items:center; gap:14px;}
+  .time-block{text-align:center; background:var(--primary-tint); border-radius:10px; padding:8px 4px;}
+  .time-block .t{font-size:13px; font-weight:700; color:var(--primary-dark);}
+  .time-block .d{font-size:10px; color:var(--primary-dark); font-weight:600;}
+  .meet-title{font-size:13.5px; font-weight:700;}
+  .meet-sub{font-size:11.5px; color:var(--text-faint); margin-top:2px;}
+  .btn-ghost{border:1px solid var(--border); background:#fff; color:var(--text); font-size:12px; font-weight:600; padding:7px 12px; border-radius:8px; cursor:pointer;}
+  .btn-mini{background:var(--primary); color:#fff; border:none; font-size:12px; font-weight:600; padding:7px 12px; border-radius:8px; cursor:pointer;}
+
+  /* RIGHT PANEL */
+  .right{padding:26px 22px; border-left:1px solid var(--border);}
+  .panel-title{font-size:15px; font-weight:700; margin-bottom:12px;}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:14px;}
+  .card h3{font-size:13px; font-weight:700; margin-bottom:10px;}
+  .insight-item{display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--border);}
+  .risk-reason{font-size:11px; color:var(--text-faint); margin-top:3px; line-height:1.45; font-style:italic;}
+  .confidence-mini{display:flex; align-items:center; gap:6px; margin-top:4px;}
+  .confidence-mini .track{background:#EEF0F5; border-radius:20px; height:4px; width:70px; overflow:hidden;}
+  .confidence-mini .fill{height:100%; border-radius:20px;}
+  .confidence-mini .pct{font-size:10px; font-weight:700; color:var(--text-faint);}
+  .sev-badge-mini{display:inline-block; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; padding:2px 7px; border-radius:20px; margin-left:6px;}
+  .sev-badge-mini.high{background:var(--red-tint); color:var(--red);}
+  .sev-badge-mini.medium{background:var(--amber-tint); color:var(--amber);}
+  .insight-item:last-child{border-bottom:none;}
+  .dot{width:7px; height:7px; border-radius:50%; margin-top:5px; flex-shrink:0;}
+  .dot.red{background:var(--red);} .dot.amber{background:var(--amber);} .dot.green{background:var(--green);} .dot.blue{background:var(--blue);}
+  .insight-item .t{font-size:12.5px; font-weight:600;}
+  .insight-item .s{font-size:11.5px; color:var(--text-faint); margin-top:2px;}
+  .ai-summary-box{background:linear-gradient(135deg,#F6F3FF,#EEF4FF); border:1px solid #E4DDFB; border-radius:12px; padding:14px;}
+  .ai-summary-box .h{font-size:12.5px; font-weight:700; color:var(--primary-dark); margin-bottom:6px;}
+  .ai-summary-box p{font-size:12px; color:#4B4D63; line-height:1.55;}
+  .action-item-line{font-size:12px; color:var(--text-dim); padding:6px 0; border-bottom:1px dashed var(--border); display:flex; gap:8px;}
+  .action-item-line:last-child{border-bottom:none;}
+  .check{width:14px; height:14px; border-radius:4px; border:1.5px solid #C9CCD8; flex-shrink:0; margin-top:1px;}
+  .check.done{background:var(--green); border-color:var(--green); position:relative;}
+</style>
+</head>
+<body>
+
+<!-- ============ SCREEN 1: PROJECTS ============ -->
+<div class="screen">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="logo"><div class="mark">N</div><div class="name">NeuronOS</div></div>
+    <nav class="nav">
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Pulse</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2"/><circle cx="19" cy="8" r="2.5"/></svg>Customers</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h11l5 5v11H4z"/><path d="M14 4v6h6"/></svg>Knowledge</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>AI Actions</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v4H4zM4 10h16v10H4z"/><path d="M9 14h6"/></svg>Automations</a>
+      <a href="#" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>Projects</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Meetings</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg>Reports</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="health-card">
+        <div class="label">Business Health</div>
+        <div class="score">94%</div>
+        <span class="badge">Excellent</span>
+        <svg class="sparkline" viewBox="0 0 160 34" width="100%" height="34"><polyline points="0,28 20,24 40,26 60,18 80,20 100,12 120,14 140,6 160,8" fill="none" stroke="#1DAE6E" stroke-width="2"/></svg>
+        <div style="font-size:10.5px;color:var(--text-faint);margin-top:4px;">+6% vs last week</div>
+      </div>
+      <div class="user-row">
+        <div class="avatar-sm"></div>
+        <div><div class="who">Abhishek Singh</div><div class="org">Growth Agency</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="main-head">
+      <div>
+        <h1>Projects</h1>
+        <p>Track delivery, risk and progress across every active engagement.</p>
+      </div>
+      <div class="head-actions">
+        <div class="search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Search projects...</div>
+        <button class="btn-primary">+ New Project</button>
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card"><div class="label">Total Projects</div><div class="value">32</div><div class="delta up">+4 this month</div></div>
+      <div class="stat-card"><div class="label">On Track</div><div class="value">24</div><div class="delta up">75% of active</div></div>
+      <div class="stat-card"><div class="label">At Risk</div><div class="value">5</div><div class="delta down">2 slipped this week</div></div>
+      <div class="stat-card"><div class="label">Avg. Completion</div><div class="value">68%</div><div class="delta flat">+3% vs last month</div></div>
+    </div>
+
+    <div class="tabs">
+      <span class="on">All Projects</span>
+      <span>At Risk (5)</span>
+      <span>Due This Week (7)</span>
+      <span>Completed (12)</span>
+    </div>
+
+    <div class="list">
+      <div class="row-card">
+        <div>
+          <div class="proj-name">ABC Ltd — Website Revamp</div>
+          <div class="proj-sub">Client · Growth Agency team</div>
+        </div>
+        <div><span class="pill green">On Track</span></div>
+        <div><div class="meta-label">Deadline</div><div class="meta-value">Aug 4, 2026</div></div>
+        <div>
+          <div class="meta-label">Progress · 82%</div>
+          <div class="progress-track"><div class="progress-fill" style="width:82%;"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="avatars"><div class="avatar-sm"></div><div class="avatar-sm"></div><div class="avatar-sm"></div></div>
+          <button class="more-btn">⋯</button>
+        </div>
+      </div>
+
+      <div class="row-card">
+        <div>
+          <div class="proj-name">XYZ Solutions — CRM Migration</div>
+          <div class="proj-sub">Blocked on client data export</div>
+        </div>
+        <div><span class="pill red">At Risk</span></div>
+        <div><div class="meta-label">Deadline</div><div class="meta-value">Jul 22, 2026</div></div>
+        <div>
+          <div class="meta-label">Progress · 41%</div>
+          <div class="progress-track"><div class="progress-fill" style="width:41%; background:var(--red);"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="avatars"><div class="avatar-sm"></div><div class="avatar-sm"></div></div>
+          <button class="more-btn">⋯</button>
+        </div>
+      </div>
+
+      <div class="row-card">
+        <div>
+          <div class="proj-name">PQR Technologies — Onboarding Flow</div>
+          <div class="proj-sub">Awaiting stakeholder review</div>
+        </div>
+        <div><span class="pill amber">Needs Review</span></div>
+        <div><div class="meta-label">Deadline</div><div class="meta-value">Jul 28, 2026</div></div>
+        <div>
+          <div class="meta-label">Progress · 60%</div>
+          <div class="progress-track"><div class="progress-fill" style="width:60%; background:var(--amber);"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="avatars"><div class="avatar-sm"></div><div class="avatar-sm"></div><div class="avatar-sm"></div></div>
+          <button class="more-btn">⋯</button>
+        </div>
+      </div>
+
+      <div class="row-card">
+        <div>
+          <div class="proj-name">LMN Consulting — Brand Refresh</div>
+          <div class="proj-sub">Final assets in review</div>
+        </div>
+        <div><span class="pill blue">In Review</span></div>
+        <div><div class="meta-label">Deadline</div><div class="meta-value">Aug 12, 2026</div></div>
+        <div>
+          <div class="meta-label">Progress · 90%</div>
+          <div class="progress-track"><div class="progress-fill" style="width:90%;"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="avatars"><div class="avatar-sm"></div></div>
+          <button class="more-btn">⋯</button>
+        </div>
+      </div>
+
+      <div class="row-card">
+        <div>
+          <div class="proj-name">Acme Corp — Support Portal</div>
+          <div class="proj-sub">Kickoff scheduled Jul 21</div>
+        </div>
+        <div><span class="pill green">On Track</span></div>
+        <div><div class="meta-label">Deadline</div><div class="meta-value">Sep 2, 2026</div></div>
+        <div>
+          <div class="meta-label">Progress · 8%</div>
+          <div class="progress-track"><div class="progress-fill" style="width:8%;"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="avatars"><div class="avatar-sm"></div><div class="avatar-sm"></div></div>
+          <button class="more-btn">⋯</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right">
+    <div class="panel-title">Project Intelligence</div>
+    <div class="ai-summary-box">
+      <div class="h">AI Summary</div>
+      <p>2 projects are at risk of missing their deadline. XYZ Solutions is blocked on a client dependency for 4 days — flagging for follow-up today.</p>
+    </div>
+    <div class="card" style="margin-top:14px;">
+      <h3>Risks &amp; Blockers</h3>
+      <div class="insight-item"><div class="dot red"></div><div>
+        <div class="t">XYZ Solutions — data export overdue</div>
+        <div class="s">Blocking migration · 4 days</div>
+        <div class="risk-reason">Why: task "Client data export" in Blocked status 4 days; 3 of 6 remaining tasks depend on it; deadline in 2 days.</div>
+        <div class="confidence-mini"><span style="font-size:10px;color:var(--text-faint);">Confidence</span><div class="track"><div class="fill" style="width:91%;background:var(--red);"></div></div><span class="pct">91%</span></div>
+      </div></div>
+      <div class="insight-item"><div class="dot amber"></div><div>
+        <div class="t">PQR Technologies — awaiting sign-off</div>
+        <div class="s">Review due tomorrow</div>
+        <div class="risk-reason">Why: requirements doc shared 5 days ago, no reviewer comment logged.</div>
+        <div class="confidence-mini"><span style="font-size:10px;color:var(--text-faint);">Confidence</span><div class="track"><div class="fill" style="width:68%;background:var(--amber);"></div></div><span class="pct">68%</span></div>
+      </div></div>
+      <div class="insight-item"><div class="dot blue"></div><div>
+        <div class="t">Acme Corp — resourcing not confirmed</div>
+        <div class="s">Kickoff in 3 days</div>
+        <div class="risk-reason">Why: no team members assigned yet; kickoff scheduled Jul 21.</div>
+        <div class="confidence-mini"><span style="font-size:10px;color:var(--text-faint);">Confidence</span><div class="track"><div class="fill" style="width:54%;background:var(--blue);"></div></div><span class="pct">54%</span></div>
+      </div></div>
+    </div>
+    <div class="card">
+      <h3>Recommended Action <span class="sev-badge-mini medium">Medium</span></h3>
+      <div style="font-size:12.5px; color:var(--text-dim); line-height:1.5; margin-bottom:6px;">Send a status request to XYZ Solutions to unblock the data export before Monday's deadline.</div>
+      <div class="risk-reason" style="margin-bottom:10px;">Why: same reasoning as the risk flag above — this action directly addresses it.</div>
+      <button class="btn-primary" style="width:100%; justify-content:center;">Draft Follow-up</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SCREEN 2: MEETINGS ============ -->
+<div class="screen">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="logo"><div class="mark">N</div><div class="name">NeuronOS</div></div>
+    <nav class="nav">
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Pulse</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2"/><circle cx="19" cy="8" r="2.5"/></svg>Customers</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h11l5 5v11H4z"/><path d="M14 4v6h6"/></svg>Knowledge</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>AI Actions</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v4H4zM4 10h16v10H4z"/><path d="M9 14h6"/></svg>Automations</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>Projects</a>
+      <a href="#" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Meetings</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg>Reports</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="health-card">
+        <div class="label">Business Health</div>
+        <div class="score">94%</div>
+        <span class="badge">Excellent</span>
+        <svg class="sparkline" viewBox="0 0 160 34" width="100%" height="34"><polyline points="0,28 20,24 40,26 60,18 80,20 100,12 120,14 140,6 160,8" fill="none" stroke="#1DAE6E" stroke-width="2"/></svg>
+        <div style="font-size:10.5px;color:var(--text-faint);margin-top:4px;">+6% vs last week</div>
+      </div>
+      <div class="user-row">
+        <div class="avatar-sm"></div>
+        <div><div class="who">Abhishek Singh</div><div class="org">Growth Agency</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="main-head">
+      <div>
+        <h1>Meetings</h1>
+        <p>Every meeting, summarized, actioned and connected automatically.</p>
+      </div>
+      <div class="head-actions">
+        <div class="search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Search meetings...</div>
+        <button class="btn-primary">+ Schedule Meeting</button>
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card"><div class="label">Meetings Today</div><div class="value">4</div><div class="delta flat">2 done · 2 upcoming</div></div>
+      <div class="stat-card"><div class="label">This Week</div><div class="value">21</div><div class="delta up">+3 vs last week</div></div>
+      <div class="stat-card"><div class="label">Action Items Created</div><div class="value">37</div><div class="delta up">18 completed</div></div>
+      <div class="stat-card"><div class="label">Avg. Duration</div><div class="value">34 min</div><div class="delta flat">On par with last month</div></div>
+    </div>
+
+    <div class="tabs">
+      <span class="on">Today</span>
+      <span>Upcoming</span>
+      <span>Past</span>
+      <span>Needs Notes (2)</span>
+    </div>
+
+    <div class="list">
+      <div class="meeting-card">
+        <div class="time-block"><div class="t">11:00</div><div class="d">AM</div></div>
+        <div>
+          <div class="meet-title">ABC Ltd — Proposal Walkthrough</div>
+          <div class="meet-sub">Zoom · 45 min · 3 attendees</div>
+        </div>
+        <div><span class="pill amber">Brief Ready</span></div>
+        <div><div class="meta-label">Prep</div><div class="meta-value">AI brief generated</div></div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-ghost">View Brief</button>
+          <button class="btn-mini">Join</button>
+        </div>
+      </div>
+
+      <div class="meeting-card">
+        <div class="time-block"><div class="t">2:30</div><div class="d">PM</div></div>
+        <div>
+          <div class="meet-title">Internal — Sprint Review</div>
+          <div class="meet-sub">Google Meet · 30 min · 6 attendees</div>
+        </div>
+        <div><span class="pill blue">Upcoming</span></div>
+        <div><div class="meta-label">Prep</div><div class="meta-value">Agenda pending</div></div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-ghost">Add Agenda</button>
+          <button class="btn-mini">Join</button>
+        </div>
+      </div>
+
+      <div class="meeting-card">
+        <div class="time-block"><div class="t">9:00</div><div class="d">AM</div></div>
+        <div>
+          <div class="meet-title">XYZ Solutions — Contract Renewal</div>
+          <div class="meet-sub">Call · 25 min · 2 attendees</div>
+        </div>
+        <div><span class="pill green">Summarized</span></div>
+        <div><div class="meta-label">Outcome</div><div class="meta-value">3 action items created</div></div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-ghost">View Notes</button>
+        </div>
+      </div>
+
+      <div class="meeting-card">
+        <div class="time-block"><div class="t">Yst</div><div class="d">4:00P</div></div>
+        <div>
+          <div class="meet-title">PQR Technologies — Kickoff</div>
+          <div class="meet-sub">Teams · 60 min · 5 attendees</div>
+        </div>
+        <div><span class="pill red">Needs Notes</span></div>
+        <div><div class="meta-label">Outcome</div><div class="meta-value">Recording only</div></div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-ghost">Generate Summary</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right">
+    <div class="panel-title">Meeting Intelligence</div>
+    <div class="ai-summary-box">
+      <div class="h">Next Meeting Brief — ABC Ltd</div>
+      <p>Proposal sent 6 days ago, no response yet. Outstanding invoice due in 5 days. Recommend confirming budget approval before discussing timeline.</p>
+    </div>
+    <div class="card" style="margin-top:14px;">
+      <h3>Talking Points</h3>
+      <div class="insight-item"><div class="dot blue"></div><div><div class="t">Confirm proposal budget approval</div></div></div>
+      <div class="insight-item"><div class="dot blue"></div><div><div class="t">Review revised project timeline</div></div></div>
+      <div class="insight-item"><div class="dot blue"></div><div><div class="t">Discuss support contract renewal</div></div></div>
+    </div>
+    <div class="card">
+      <h3>Action Items — XYZ Renewal</h3>
+      <div class="action-item-line"><div class="check done"></div>Send renewal contract draft</div>
+      <div class="action-item-line"><div class="check done"></div>Update CRM contract status</div>
+      <div class="action-item-line"><div class="check"></div>Schedule signature call</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

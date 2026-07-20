@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NeuronOS — Project &amp; Meeting Detail</title>
+<style>
+  :root{
+    --bg:#F6F7FB; --card:#FFFFFF; --border:#EAECF2; --text:#1B1D28;
+    --text-dim:#6B7080; --text-faint:#9498A6;
+    --primary:#6C5CE7; --primary-dark:#5A48D8; --primary-tint:#F0EDFF;
+    --green:#1DAE6E; --green-tint:#E9F9F1;
+    --amber:#E58A00; --amber-tint:#FFF4E0;
+    --red:#E14B4B; --red-tint:#FDECEC;
+    --blue:#2E7DD1; --blue-tint:#EAF3FC;
+    --radius:14px; --shadow:0 1px 2px rgba(20,20,43,.04), 0 8px 24px rgba(20,20,43,.05);
+    font-family:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--text);}
+  .screen{display:grid; grid-template-columns:220px 1fr 300px; min-height:100vh; border-bottom:10px solid var(--bg);}
+  .sidebar{background:#fff; border-right:1px solid var(--border); padding:20px 14px; display:flex; flex-direction:column;}
+  .logo{display:flex; align-items:center; gap:8px; padding:4px 8px 22px 8px;}
+  .logo .mark{width:26px; height:26px; border-radius:8px; background:linear-gradient(135deg,#8B7CF6,#5A48D8); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:14px;}
+  .logo .name{font-weight:700; font-size:15px; letter-spacing:-.2px;}
+  .nav{display:flex; flex-direction:column; gap:2px;}
+  .nav a{display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:9px; color:var(--text-dim); font-size:13.5px; font-weight:500; text-decoration:none;}
+  .nav a svg{width:16px; height:16px; flex-shrink:0;}
+  .nav a.active{background:var(--primary-tint); color:var(--primary-dark); font-weight:600;}
+  .sidebar-footer{margin-top:auto; padding-top:16px;}
+  .health-card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px;}
+  .health-card .label{font-size:11px; color:var(--text-faint); font-weight:600; text-transform:uppercase; letter-spacing:.4px;}
+  .health-card .score{font-size:22px; font-weight:700; margin-top:4px;}
+  .health-card .badge{display:inline-block; margin-top:4px; background:var(--green-tint); color:var(--green); font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px;}
+  .user-row{display:flex; align-items:center; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid var(--border);}
+  .avatar-sm{width:26px; height:26px; border-radius:50%; background:#DCD6FA; flex-shrink:0;}
+  .user-row .who{font-size:12.5px; font-weight:600;} .user-row .org{font-size:11px; color:var(--text-faint);}
+
+  .main{padding:22px 30px;}
+  .breadcrumb{font-size:12px; color:var(--text-faint); margin-bottom:12px; display:flex; align-items:center; gap:6px;}
+  .breadcrumb a{color:var(--text-faint); text-decoration:none;}
+  .breadcrumb span.cur{color:var(--text); font-weight:600;}
+
+  .header-band{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:20px 22px; margin-bottom:18px;}
+  .header-top{display:flex; align-items:flex-start; justify-content:space-between;}
+  .htitle{font-size:19px; font-weight:700; letter-spacing:-.2px;}
+  .hchip{display:inline-flex; align-items:center; gap:6px; background:var(--primary-tint); color:var(--primary-dark); font-size:11.5px; font-weight:600; padding:4px 10px; border-radius:20px; margin-top:8px;}
+  .hmeta{display:flex; gap:22px; margin-top:14px; flex-wrap:wrap;}
+  .hmeta-item .l{font-size:10.5px; color:var(--text-faint); font-weight:600; text-transform:uppercase; letter-spacing:.3px;}
+  .hmeta-item .v{font-size:13px; font-weight:600; margin-top:3px;}
+  .pill{display:inline-block; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px;}
+  .pill.green{background:var(--green-tint); color:var(--green);} .pill.amber{background:var(--amber-tint); color:var(--amber);}
+  .pill.red{background:var(--red-tint); color:var(--red);} .pill.blue{background:var(--blue-tint); color:var(--blue);}
+  .progress-track{background:#EEF0F5; border-radius:20px; height:7px; width:220px; margin-top:6px; overflow:hidden;}
+  .progress-fill{height:100%; border-radius:20px; background:var(--primary);}
+  .btn-primary{background:var(--primary); color:#fff; border:none; border-radius:10px; padding:9px 16px; font-size:13px; font-weight:600; cursor:pointer;}
+  .btn-ghost{border:1px solid var(--border); background:#fff; color:var(--text); font-size:12.5px; font-weight:600; padding:8px 14px; border-radius:9px; cursor:pointer;}
+
+  .tabs{display:flex; gap:20px; border-bottom:1px solid var(--border); margin-bottom:16px;}
+  .tabs span{font-size:13px; font-weight:600; color:var(--text-faint); padding-bottom:10px; cursor:pointer;}
+  .tabs span.on{color:var(--primary); border-bottom:2px solid var(--primary);}
+
+  .kanban{display:grid; grid-template-columns:repeat(4,1fr); gap:12px;}
+  .kcol{background:#F0F1F5; border-radius:12px; padding:10px;}
+  .kcol .khead{font-size:11.5px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.3px; margin-bottom:8px; padding:0 4px;}
+  .tcard{background:#fff; border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:8px; box-shadow:var(--shadow);}
+  .tcard .tt{font-size:12.5px; font-weight:600;}
+  .tcard .tm{display:flex; align-items:center; justify-content:space-between; margin-top:8px;}
+  .tcard .due{font-size:11px; color:var(--text-faint);}
+  .badge-meeting{display:inline-flex; align-items:center; gap:4px; font-size:10px; color:var(--primary-dark); background:var(--primary-tint); padding:2px 6px; border-radius:6px; margin-top:6px;}
+
+  .card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:14px;}
+  .card h3{font-size:13px; font-weight:700; margin-bottom:10px;}
+  .ai-summary-box{background:linear-gradient(135deg,#F6F3FF,#EEF4FF); border:1px solid #E4DDFB; border-radius:12px; padding:14px;}
+  .ai-summary-box .h{font-size:12.5px; font-weight:700; color:var(--primary-dark); margin-bottom:6px;}
+  .ai-summary-box p{font-size:12px; color:#4B4D63; line-height:1.55;}
+  .insight-item{display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--border);}
+  .risk-reason{font-size:11px; color:var(--text-faint); margin-top:3px; line-height:1.45; font-style:italic;}
+  .confidence-mini{display:flex; align-items:center; gap:6px; margin-top:4px;}
+  .confidence-mini .track{background:#EEF0F5; border-radius:20px; height:4px; width:70px; overflow:hidden;}
+  .confidence-mini .fill{height:100%; border-radius:20px;}
+  .confidence-mini .pct{font-size:10px; font-weight:700; color:var(--text-faint);}
+  .sev-badge-mini{display:inline-block; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; padding:2px 7px; border-radius:20px; margin-left:6px;}
+  .sev-badge-mini.high{background:var(--red-tint); color:var(--red);}
+  .sev-badge-mini.medium{background:var(--amber-tint); color:var(--amber);}
+  .blocked-reason{font-size:10px; color:var(--red); margin-top:5px; line-height:1.4;}
+  .insight-item:last-child{border-bottom:none;}
+  .dot{width:7px; height:7px; border-radius:50%; margin-top:5px; flex-shrink:0;}
+  .dot.red{background:var(--red);} .dot.amber{background:var(--amber);} .dot.blue{background:var(--blue);}
+  .insight-item .t{font-size:12.5px; font-weight:600;} .insight-item .s{font-size:11.5px; color:var(--text-faint); margin-top:2px;}
+  .action-item-line{font-size:12.5px; color:var(--text-dim); padding:8px 0; border-bottom:1px dashed var(--border); display:flex; gap:8px; align-items:flex-start;}
+  .action-item-line:last-child{border-bottom:none;}
+  .check{width:14px; height:14px; border-radius:4px; border:1.5px solid #C9CCD8; flex-shrink:0; margin-top:1px;}
+  .check.done{background:var(--green); border-color:var(--green);}
+  .promote-link{font-size:11px; color:var(--primary-dark); font-weight:600; margin-left:auto;}
+
+  .attendee-row{display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border);}
+  .attendee-row:last-child{border-bottom:none;}
+  .attendee-row .n{font-size:12.5px; font-weight:600;} .attendee-row .r{font-size:11px; color:var(--text-faint);}
+
+  .right{padding:22px 20px; border-left:1px solid var(--border);}
+  .panel-title{font-size:14px; font-weight:700; margin-bottom:12px;}
+  .talking-item{font-size:12.5px; color:var(--text-dim); padding:6px 0; display:flex; gap:8px;}
+  .num{width:16px; height:16px; border-radius:50%; background:var(--primary-tint); color:var(--primary-dark); font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px;}
+</style>
+</head>
+<body>
+
+<!-- ============ SCREEN 1: PROJECT DETAIL ============ -->
+<div class="screen">
+  <div class="sidebar">
+    <div class="logo"><div class="mark">N</div><div class="name">NeuronOS</div></div>
+    <nav class="nav">
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Pulse</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2"/><circle cx="19" cy="8" r="2.5"/></svg>Customers</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h11l5 5v11H4z"/><path d="M14 4v6h6"/></svg>Knowledge</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>AI Actions</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v4H4zM4 10h16v10H4z"/><path d="M9 14h6"/></svg>Automations</a>
+      <a href="#" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>Projects</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Meetings</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg>Reports</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9"/></svg>Settings</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="health-card">
+        <div class="label">Business Health</div><div class="score">94%</div><span class="badge">Excellent</span>
+      </div>
+      <div class="user-row"><div class="avatar-sm"></div><div><div class="who">Abhishek Singh</div><div class="org">Growth Agency</div></div></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="breadcrumb"><a href="#">Projects</a> <span>›</span> <span class="cur">XYZ Solutions — CRM Migration</span></div>
+
+    <div class="header-band">
+      <div class="header-top">
+        <div>
+          <div class="htitle">XYZ Solutions — CRM Migration</div>
+          <span class="hchip">🔗 XYZ Solutions</span>
+        </div>
+        <div style="display:flex; gap:8px;"><button class="btn-ghost">Edit</button><button class="btn-primary">Mark Complete</button></div>
+      </div>
+      <div class="hmeta">
+        <div class="hmeta-item"><div class="l">Status</div><div class="v"><span class="pill red">At Risk</span></div></div>
+        <div class="hmeta-item"><div class="l">Deadline</div><div class="v">Jul 22, 2026</div></div>
+        <div class="hmeta-item"><div class="l">Team</div><div class="v">👥 3 members</div></div>
+        <div class="hmeta-item">
+          <div class="l">Progress · 41%</div>
+          <div class="progress-track"><div class="progress-fill" style="width:41%; background:var(--red);"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <span class="on">Tasks</span><span>Overview</span><span>Timeline</span><span>Dependencies</span><span>Files</span><span>Notes</span>
+    </div>
+
+    <div class="kanban">
+      <div class="kcol">
+        <div class="khead">To Do · 2</div>
+        <div class="tcard"><div class="tt">Finalize data mapping doc</div><div class="tm"><div class="avatar-sm" style="width:18px;height:18px;"></div><div class="due">Due Jul 20</div></div></div>
+        <div class="tcard"><div class="tt">Set up sandbox environment</div><div class="tm"><div class="avatar-sm" style="width:18px;height:18px;"></div><div class="due">Due Jul 21</div></div></div>
+      </div>
+      <div class="kcol">
+        <div class="khead">In Progress · 1</div>
+        <div class="tcard"><div class="tt">Migrate contact records</div><div class="tm"><div class="avatar-sm" style="width:18px;height:18px;"></div><div class="due">Due Jul 22</div></div></div>
+      </div>
+      <div class="kcol">
+        <div class="khead">Blocked · 1</div>
+        <div class="tcard"><div class="tt">Client data export</div><div class="tm"><span class="pill red" style="font-size:10px;">4 days</span></div><div class="badge-meeting">📅 From: Kickoff meeting</div><div class="blocked-reason">Why flagged: no client response on 2 follow-up emails; 3 downstream tasks depend on this.</div></div>
+      </div>
+      <div class="kcol">
+        <div class="khead">Done · 3</div>
+        <div class="tcard" style="opacity:.6;"><div class="tt">Kickoff call completed</div><div class="tm"><div class="due">Jul 10</div></div></div>
+        <div class="tcard" style="opacity:.6;"><div class="tt">Requirements doc signed off</div><div class="tm"><div class="due">Jul 13</div></div></div>
+        <div class="tcard" style="opacity:.6;"><div class="tt">Access credentials shared</div><div class="tm"><div class="due">Jul 15</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="panel-title">Project Intelligence</div>
+    <div class="ai-summary-box">
+      <div class="h">AI Summary</div>
+      <p>Blocked 4 days on client data export. If unresolved by Monday, the Jul 22 deadline will slip. Recommend escalating today.</p>
+    </div>
+    <div class="card" style="margin-top:14px;">
+      <h3>Risks &amp; Blockers</h3>
+      <div class="insight-item"><div class="dot red"></div><div>
+        <div class="t">Data export overdue</div>
+        <div class="s">Blocking migration · 4 days</div>
+        <div class="risk-reason">Why: task in Blocked status 4 days; 3 of 6 remaining tasks depend on it; deadline in 2 days.</div>
+        <div class="confidence-mini"><span style="font-size:10px;color:var(--text-faint);">Confidence</span><div class="track"><div class="fill" style="width:91%;background:var(--red);"></div></div><span class="pct">91%</span></div>
+      </div></div>
+      <div class="insight-item"><div class="dot amber"></div><div>
+        <div class="t">Sandbox not yet provisioned</div>
+        <div class="s">Needed before Jul 21</div>
+        <div class="risk-reason">Why: infra ticket unassigned for 3 days; task due in 2 days.</div>
+        <div class="confidence-mini"><span style="font-size:10px;color:var(--text-faint);">Confidence</span><div class="track"><div class="fill" style="width:63%;background:var(--amber);"></div></div><span class="pct">63%</span></div>
+      </div></div>
+    </div>
+    <div class="card">
+      <h3>Recommended Action <span class="sev-badge-mini medium">Medium</span></h3>
+      <div style="font-size:12.5px; color:var(--text-dim); line-height:1.5; margin-bottom:10px;">Send a status request to XYZ Solutions to unblock the data export before Monday's deadline.</div>
+      <button class="btn-primary" style="width:100%;">Draft Follow-up</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SCREEN 2: MEETING DETAIL ============ -->
+<div class="screen">
+  <div class="sidebar">
+    <div class="logo"><div class="mark">N</div><div class="name">NeuronOS</div></div>
+    <nav class="nav">
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Pulse</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2"/><circle cx="19" cy="8" r="2.5"/></svg>Customers</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h11l5 5v11H4z"/><path d="M14 4v6h6"/></svg>Knowledge</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>AI Actions</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v4H4zM4 10h16v10H4z"/><path d="M9 14h6"/></svg>Automations</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>Projects</a>
+      <a href="#" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Meetings</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg>Reports</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9"/></svg>Settings</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="health-card"><div class="label">Business Health</div><div class="score">94%</div><span class="badge">Excellent</span></div>
+      <div class="user-row"><div class="avatar-sm"></div><div><div class="who">Abhishek Singh</div><div class="org">Growth Agency</div></div></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="breadcrumb"><a href="#">Meetings</a> <span>›</span> <span class="cur">ABC Ltd — Proposal Walkthrough</span></div>
+
+    <div class="header-band">
+      <div class="header-top">
+        <div>
+          <div class="htitle">ABC Ltd — Proposal Walkthrough</div>
+          <span class="hchip">🔗 ABC Ltd</span>
+        </div>
+        <button class="btn-primary">Join Meeting</button>
+      </div>
+      <div class="hmeta">
+        <div class="hmeta-item"><div class="l">Status</div><div class="v"><span class="pill amber">Brief Ready</span></div></div>
+        <div class="hmeta-item"><div class="l">Scheduled</div><div class="v">Today, 11:00 AM</div></div>
+        <div class="hmeta-item"><div class="l">Platform</div><div class="v">Zoom · 45 min</div></div>
+        <div class="hmeta-item"><div class="l">Attendees</div><div class="v">👥 3</div></div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <span class="on">Brief</span><span>Notes / Transcript</span><span>Action Items</span><span>Attendees</span>
+    </div>
+
+    <div class="card">
+      <h3>AI-Generated Brief</h3>
+      <p style="font-size:12.5px; color:var(--text-dim); line-height:1.6; margin-bottom:14px;">Proposal sent 6 days ago with no response yet. Outstanding invoice of ₹82,000 due in 5 days. Recommend confirming budget approval before discussing the revised project timeline.</p>
+      <div style="font-size:12px; font-weight:700; margin-bottom:8px;">Talking Points</div>
+      <div class="talking-item"><div class="num">1</div>Confirm proposal budget approval</div>
+      <div class="talking-item"><div class="num">2</div>Review revised project timeline</div>
+      <div class="talking-item"><div class="num">3</div>Discuss support contract renewal</div>
+    </div>
+
+    <div class="card">
+      <h3>Related Context</h3>
+      <div class="insight-item"><div class="dot blue"></div><div><div class="t">Open Proposal — ₹4,80,000</div><div class="s">Sent 6 days ago</div></div></div>
+      <div class="insight-item"><div class="dot amber"></div><div><div class="t">Outstanding Invoice — ₹82,000</div><div class="s">Due in 5 days</div></div></div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="panel-title">Meeting Intelligence</div>
+    <div class="card">
+      <h3>Quick Reference</h3>
+      <div class="talking-item"><div class="num">1</div>Confirm budget approval</div>
+      <div class="talking-item"><div class="num">2</div>Review timeline</div>
+      <div class="talking-item"><div class="num">3</div>Renewal discussion</div>
+    </div>
+    <div class="card">
+      <h3>Attendees</h3>
+      <div class="attendee-row"><div class="avatar-sm"></div><div><div class="n">Abhishek Singh</div><div class="r">Growth Agency</div></div></div>
+      <div class="attendee-row"><div class="avatar-sm"></div><div><div class="n">Jane Doe</div><div class="r">ABC Ltd · Procurement</div></div></div>
+      <div class="attendee-row"><div class="avatar-sm"></div><div><div class="n">Raj Mehta</div><div class="r">ABC Ltd · Finance</div></div></div>
+    </div>
+    <div class="card">
+      <h3>Related Meetings</h3>
+      <div class="insight-item"><div class="dot blue"></div><div><div class="t">ABC Ltd — Discovery Call</div><div class="s">Jun 28, 2026</div></div></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
