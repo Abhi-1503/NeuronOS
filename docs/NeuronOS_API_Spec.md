@@ -51,7 +51,7 @@ List endpoints add pagination:
 }
 ```
 
-Standard `error.code` values used across all endpoints: `validation_error` (422), `not_found` (404), `permission_denied` (403), `unauthenticated` (401), `rate_limited` (429), `conflict` (409), `integration_error` (502), `internal_error` (500).
+Standard `error.code` values used across all endpoints: `validation_error` (422), `not_found` (404), `permission_denied` (403), `unauthenticated` (401), `rate_limited` (429), `conflict` (409), `gone` (410 — added during Phase 0 implementation for expired-but-once-valid resources, e.g. an expired invitation token in `POST /auth/invitations/{token}/accept` §1; distinct from `not_found`, since "this existed and is now expired" is a more useful signal to a client than "this never existed"), `integration_error` (502), `internal_error` (500).
 
 ### 0.4 Pagination
 
@@ -91,11 +91,21 @@ Used in every endpoint table below: **Owner**, **Admin**, **Member**, **Any** (a
 
 ## 1. Auth
 
+### `POST /auth/signup`
+- **Purpose:** **Gap addressed (surfaced during Phase 0 implementation):** no endpoint existed anywhere in this spec for how organization #1 — or any organization — actually gets created. Every other Auth endpoint assumes an organization and an authenticated user already exist. This is the missing bootstrap step, and Phase 0's exit criteria ("a logged-in user can create an org") is not achievable without it.
+- **Body:** `{ "organization_name": string, "name": string, "email": string, "password": string }`
+- **Validation:** `email` globally unique (Database Spec §1.2 — signup fails with `409 conflict` if the email is already registered to any organization, not just this one); password meets minimum strength policy (length ≥ 8; full policy is a Phase 0 implementation detail, not a product decision); `organization_name` 1–200 chars.
+- **Behavior:** creates the `organizations` row (`terms_accepted_at = NULL`) and a `users` row with `role = 'owner'`, `status = 'active'` in the same transaction, and issues a session token immediately (§11's `POST /organization/accept-terms` requires an authenticated Owner, so the token has to exist first — the two endpoints are chained, not the same call). The token is fully valid for authentication, but every non-auth, non-terms endpoint checks `organizations.terms_accepted_at IS NOT NULL` and returns `403 permission_denied` (`code: "terms_not_accepted"`) if it's unset — this is what makes ToS acceptance a **blocking** step in the signup flow (Roadmap Phase 1 security-readiness requirement, Blueprint §17.8) without creating a chicken-and-egg auth problem. The frontend flow is: submit signup → receive token → immediately prompt ToS acceptance (no other screen is reachable) → call `POST /organization/accept-terms` → normal product access unlocks.
+- **Response 201:** `{ "data": { "organization": {...}, "user": {...}, "token": string, "refresh_token": string } }`
+- **Errors:** `409 conflict` (email already registered), `422 validation_error`.
+- **Permissions:** none (public endpoint, like `/auth/login`).
+- **Rate limit:** 10/min per IP (same brute-force-adjacent protection as login).
+
 ### `POST /auth/login`
 - **Purpose:** Authenticate a user, issue a session token.
 - **Body:** `{ "email": string, "password": string }`
 - **Validation:** email format; password non-empty.
-- **Response 200:** `{ "data": { "token": string, "user": {...}, "organization": {...} } }`
+- **Response 200:** `{ "data": { "token": string, "refresh_token": string, "user": {...}, "organization": {...} } }`
 - **Errors:** `401 unauthenticated` (bad credentials), `403 permission_denied` (suspended user).
 - **Permissions:** none (public endpoint).
 - **Rate limit:** 10/min per IP (stricter than default — brute-force protection).
@@ -108,9 +118,20 @@ Used in every endpoint table below: **Owner**, **Admin**, **Member**, **Any** (a
 ### `POST /auth/invite`
 - **Purpose:** Invite a new user to the organization.
 - **Body:** `{ "email": string, "role": "admin"|"member" }`
-- **Validation:** role cannot be `owner` (ownership transfer is a separate, explicit flow).
+- **Validation:** role cannot be `owner` (ownership transfer is a separate, explicit flow); `email` must not already belong to an active user in **any** organization (Database Spec §1.2 — `email` is globally unique, so this fails `409 conflict` rather than silently creating a second account for an email already in use elsewhere).
+- **Behavior:** creates a `users` row with `status = 'invited'`, `password_hash = NULL`, a fresh invitation token (returned to the caller only in the invite email/notification payload, never in this API response — the response confirms the invite was sent, it does not hand back the credential), and `invitation_expires_at` set 7 days out. Only the token's hash (`invitation_token_hash`) is persisted (Database Spec §1.2).
 - **Response 201:** `{ "data": { "invitation_id": string, "email": string, "status": "invited" } }`
 - **Permissions:** Owner, Admin.
+
+### `POST /auth/invitations/{token}/accept`
+- **Purpose:** **Gap addressed (surfaced during Phase 0 implementation):** `POST /auth/invite` created a pending invitation, but no endpoint existed for the invited person to actually complete it — meaning "invite a teammate," Phase 0's own exit criterion, was not achievable end-to-end. This is that missing step.
+- **Body:** `{ "name": string, "password": string }` — `name` lets the invited user confirm/correct their display name; `email` is not re-collected here, it's already fixed by the invitation.
+- **Validation:** `404 not_found` if the token doesn't match any pending invitation (never distinguishes "wrong token" from "expired token" from "already accepted" in the response — an enumerable, distinguishing error here would let an attacker probe which emails have pending invites); `410 gone` if `invitation_expires_at` has passed; password meets the same minimum strength policy as signup.
+- **Behavior:** verifies the token against `invitation_token_hash`, sets `password_hash`, `status = 'active'`, clears `invitation_token_hash`/`invitation_expires_at`, and issues a session token — the invited user is logged in immediately upon accepting, not redirected to a separate login step.
+- **Response 200:** `{ "data": { "user": {...}, "organization": {...}, "token": string, "refresh_token": string } }`
+- **Errors:** `404 not_found`, `410 gone`, `422 validation_error`.
+- **Permissions:** none (public endpoint — the token itself is the credential proving the invite was intended for whoever holds it).
+- **Rate limit:** 10/min per IP (same brute-force-adjacent protection as login/signup, since this endpoint accepts an attacker-guessable-length token repeatedly).
 
 ### `POST /auth/refresh`
 - **Purpose:** Exchange a refresh token for a new session token.
@@ -441,6 +462,17 @@ Used in every endpoint table below: **Owner**, **Admin**, **Member**, **Any** (a
 
 ## 9. Reports
 
+### `POST /reports/import`
+- **Purpose:** **Gap addressed (surfaced during Phase 0 implementation):** the Roadmap (Phase 1 scope, Reports row) explicitly promises Reports can be "manual/CSV-fed if no integrations," but no endpoint existed anywhere in this spec to actually import a CSV — the promised path was undocumented and unbuildable as specified.
+- **Body:** multipart/form-data — `file` (CSV), `import_type` (`deals`|`customers`, required — one file imports one entity type, not a mixed schema).
+- **Validation:** file type must be `text/csv`; max size 10MB (CSV rows are small; this is generous headroom, not a document-upload-sized limit); header row must match the expected column set for `import_type` (e.g., for `deals`: `customer_name, title, stage, amount, currency, expected_close_date`) — a mismatched header returns `422 validation_error` with the expected vs. actual columns in `details`, not a row-by-row failure after partial processing.
+- **Behavior:** processed synchronously for MVP (CSV files at this scale — a few hundred rows — don't need async job infrastructure; revisit if real usage shows otherwise). Rows are validated and inserted as `source = 'manual'` records (Database Spec §2.1/§2.3) in a single transaction — **the import is all-or-nothing**: if any row fails validation, none are inserted, and the response lists every failing row with its reason, so a business owner can fix a spreadsheet and re-upload rather than untangling a half-imported state. For `import_type = deals`, a row naming a `customer_name` with no matching existing `customers` row creates that customer first (`source = 'manual'`) in the same transaction, consistent with Path B/C of the onboarding flow treating a named customer as worth creating (Onboarding Spec §3.2).
+- **Idempotency:** re-uploading the identical file is handled the same way `POST /documents` handles duplicate uploads (§0.5's resolution) — a SHA-256 content hash of the file is checked against recent imports for this organization, and a match is surfaced as "This looks like a file you already imported — import anyway, or cancel?" rather than silently double-counting revenue. This endpoint does not require the `Idempotency-Key` header (§0.5) since it isn't triggering an irreversible *external* side effect; the content-hash check serves the equivalent purpose for a duplicate-data risk instead.
+- **Response 201:** `{ "data": { "imported_count": int, "created_customers_count": int, "import_type": string } }`
+- **Errors:** `422 validation_error` (header mismatch or any row failing validation, with full row-level detail), `409 conflict` (duplicate content hash, unless the client explicitly confirms via `{ "force": true }` in the body).
+- **Permissions:** Admin, Owner (this is org-financial data, held to the same bar as billing/team management, not Any).
+- **Rate limit:** standard write limit (§0.6) — not AI-generation-tier, since no LLM call is involved.
+
 ### `GET /reports/overview`
 - **Query params:** `period` (`this_month`,`last_month`,`custom`), `from`, `to` (for custom).
 - **Response 200:** `{ "data": { "total_revenue": number, "new_deals": int, "revenue_at_risk": number, "open_invoices": number, "deltas": {...} } }`
@@ -574,3 +606,6 @@ Signed with an HMAC header (`X-NeuronOS-Signature`) so receivers can verify auth
 14. **[Resolved during verification pass]** `score_history` (Database Spec §7.5) had no retrieval endpoint at all — added `GET /reports/score-history`.
 15. **[Resolved during verification pass]** `organizations.terms_accepted_version`/`dpa_signed_at` had no endpoint to actually set them — added `POST /organization/accept-terms` and `POST /organization/request-dpa`.
 16. **[Resolved during verification pass]** `POST /documents`'s idempotency handling didn't address duplicate uploads of the same file as two separate logical actions — added a content-hash dedup recommendation (§0.5).
+17. **[Resolved during Phase 0 implementation]** No endpoint existed for how an organization is actually created — added `POST /auth/signup` (§1), chained to the existing `POST /organization/accept-terms` via a `terms_not_accepted` gate rather than withholding the session token (which would have created an auth chicken-and-egg problem against that endpoint's Owner-only permission).
+18. **[Resolved during Phase 0 implementation]** `POST /auth/invite` created a pending invitation with no way for the invited user to complete it — added `POST /auth/invitations/{token}/accept` (§1). This was blocking Phase 0's own exit criterion ("invite a teammate").
+19. **[Resolved during Phase 0 implementation]** The Roadmap's Phase 1 promise that Reports supports a "manual/CSV-fed" path had no backing endpoint — added `POST /reports/import` (§9).

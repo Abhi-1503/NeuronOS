@@ -22,12 +22,48 @@ RLS is enabled on every tenant-scoped table. Standard policy pattern:
 
 ```sql
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE customers FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY tenant_isolation ON customers
-  USING (organization_id = current_setting('app.current_org_id')::uuid);
+  USING (organization_id = NULLIF(current_setting('app.current_org_id', true), '')::uuid);
 ```
 
+**Three corrections made during Phase 0 implementation, all caught only by a test that actually exercises RLS across two organizations with a pooled connection — not by inspection:**
+
+1. **`current_setting`'s second argument (`missing_ok = true`) is required, not optional.** Without it, `current_setting('app.current_org_id')` *raises* `unrecognized configuration parameter` in any session where that setting was never touched at all (e.g. the pre-authentication `auth_service_bypass` path on `users`, §0.1 addendum, which sets `app.bypass_rls_for_auth` but never `app.current_org_id`) — since permissive policies on the same table are evaluated together, that one unset variable was enough to break every query against `users`. `missing_ok = true` makes it return `NULL` instead of erroring in that case.
+2. **`NULLIF(..., '')` is required around the `missing_ok`-guarded call, not just the flag itself.** Under connection pooling, a physical connection that has *previously* held a transaction-local (`set_config(..., true)`) value for a custom setting reverts to an empty string `''` — not `NULL` — once that transaction ends, if the setting was never given a plain session-level value. A later request reusing that same pooled connection without setting `app.current_org_id` in its own transaction would otherwise try to cast `''::uuid`, which errors, rather than correctly evaluating to "no match." `NULLIF` normalizes both the never-set (`NULL`) and previously-set-then-reverted (`''`) cases to `NULL` before the cast.
+3. **`ENABLE ROW LEVEL SECURITY` alone is not sufficient — `FORCE ROW LEVEL SECURITY` is required too.** Postgres exempts a table's *owner* (and superusers, unconditionally) from RLS policies by default, even with RLS enabled. Since the role that runs migrations necessarily owns every table it creates, an application that connects using that same role would have RLS silently do nothing — no error, no warning, just full visibility across every organization. `FORCE ROW LEVEL SECURITY` closes this for the owner (not for superusers — see the role separation below, which is the actual fix; FORCE is defense-in-depth on top of it). **This is precisely why the application must never connect using the migration/owner role** — see the new `neuronos_app` role below.
+
+### 0.1.1 Application Database Role
+
+**Gap surfaced during Phase 0 implementation:** the original schema had one implicit Postgres role in mind for everything — whichever role ran the migrations. RLS being a no-op against that same role wasn't a hypothetical risk; it's exactly what happened the first time the RLS cross-tenant test actually ran; the query returned every organization's rows with no error of any kind.
+
+**Resolution:** two distinct roles, never interchangeable:
+
+| Role | Used by | Privileges |
+|---|---|---|
+| Migration/owner role (e.g. `neuronos`) | Alembic only | Owns every table; DDL rights |
+| `neuronos_app` | The running application (every request) | `SELECT/INSERT/UPDATE/DELETE` on all tables (granted explicitly, plus `ALTER DEFAULT PRIVILEGES` so future migrations' new tables are covered automatically); explicitly `NOSUPERUSER NOBYPASSRLS`; **no DDL rights, no table ownership** |
+
+The application's connection string (`DATABASE_URL`) must always point at `neuronos_app`, never at the owner role — this is the actual enforcement mechanism, with `FORCE ROW LEVEL SECURITY` above as a second, redundant layer. The role and its grants are created by the first migration (so they exist from Phase 0 onward). Its password is read from the `NEURONOS_APP_ROLE_PASSWORD` environment variable **at the moment the role is first created** (falling back to a local-dev placeholder only when that variable is unset) — every real environment sets this from its own secrets mechanism before running the migration there for the first time, rather than needing a manual `ALTER ROLE` follow-up step. This is deliberately a create-time read only, not re-applied on every subsequent migration run: doing so unconditionally would mean a migration run with the variable accidentally unset (e.g. a misconfigured CI job) silently resets an already-rotated production password back to the placeholder. Rotating the password on an already-created role is a separate, deliberate `ALTER ROLE neuronos_app WITH PASSWORD '...'` action, not an automatic side effect of re-running migrations.
+
 The application sets `app.current_org_id` at the start of every request (via `SET LOCAL` inside the transaction), derived from the authenticated token — never from a client-supplied parameter. This is a defense-in-depth layer underneath the ORM-level scoping already enforced in the service layer (Blueprint §17.2) — a bug in application code cannot leak cross-tenant data because the database itself refuses it.
+
+**Decision record — connection pooling mode (resolved this pass, do not silently revisit):** `SET LOCAL` scopes its setting to the current transaction on whatever physical connection is executing it. A pooler running in **transaction-mode pooling** (e.g., PgBouncer's default, or Railway's managed Postgres proxy in its default configuration) can hand that same physical connection to a *different* request's transaction the moment the first transaction commits — meaning a stale `app.current_org_id` from a previous tenant's request could theoretically still be set if any code path ever reads it outside the exact transaction that issued the `SET LOCAL`, or if a connection is reused before the setting is properly reset. This is exactly the kind of failure mode that passes in testing (low concurrency, one org at a time) and only surfaces under real concurrent multi-tenant load — at which point it's a cross-tenant data leak, not a bug report.
+
+NeuronOS therefore runs its database connections in **session-mode pooling**, not transaction-mode: each request/service-layer session holds a dedicated connection for the lifetime of that session, and `app.current_org_id` is set once per request against a connection that isn't handed to a different request mid-flight. This trades a small amount of connection-count efficiency (session-mode pools support fewer concurrent clients per pool than transaction-mode for the same connection budget) for eliminating an entire class of tenant-isolation bug at the infrastructure layer, which is the correct trade at NeuronOS's current scale. **This is a deliberate, load-bearing decision, not a default left in place by omission — do not switch to transaction-mode pooling to save connection overhead without re-deriving this reasoning first.** Configured via `backend/app/core/db.py`'s engine pooling settings (Phase 0).
+
+**Gap surfaced during Phase 0 implementation — pre-authentication access to `users` has no organization context to scope by.** The standard `tenant_isolation` policy (above) requires `app.current_org_id` to already be set, but three real operations happen *before* any organization context exists: (a) `POST /auth/login` looking up a user by email with no org known yet (structurally true regardless of the global-vs-per-org email uniqueness decision in §1.2 — even a globally-unique email lookup has to run against the whole `users` table, not one tenant's slice of it); (b) `POST /auth/signup` inserting the very first `users` row for a brand-new organization, before any token or session exists to derive an org id from; (c) `POST /auth/invitations/{token}/accept` looking up a pending invitation by token hash, which is deliberately not scoped to an org the caller doesn't yet have credentials for.
+
+**Resolution:** a second, narrowly-scoped permissive RLS policy on `users` only (no other table needs this — every other table is only ever queried after authentication, when an org context genuinely exists):
+
+```sql
+CREATE POLICY auth_service_bypass ON users
+    USING (current_setting('app.bypass_rls_for_auth', true) = 'true')
+    WITH CHECK (current_setting('app.bypass_rls_for_auth', true) = 'true');
+```
+
+Postgres RLS policies are permissive and OR'ed by default, so this adds a narrow escape hatch alongside `tenant_isolation` rather than replacing it. The application sets `SET LOCAL app.bypass_rls_for_auth = 'true'` (instead of `app.current_org_id`) only inside the three operations named above — never in any request that has an authenticated org context, and never for any table other than `users`. This is a deliberately narrow, documented exception, not a general-purpose bypass: it does not use a second database role or `BYPASSRLS`, specifically so the exception is visible in this table's policy definition rather than hidden in connection-string configuration that's easy to forget is there. Any future pre-authentication cross-tenant read (should one arise) must be justified and added here explicitly, not solved by widening this policy's condition or reusing it for a table it wasn't designed for.
 
 ### 0.2 Soft Delete Convention
 
@@ -82,17 +118,22 @@ CREATE TRIGGER trg_set_updated_at BEFORE UPDATE ON customers
 |---|---|---|
 | id | UUID PK | |
 | organization_id | UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE | |
-| email | CITEXT NOT NULL | unique per organization, not globally (supports future multi-org membership) |
+| email | CITEXT NOT NULL UNIQUE | **Decision (this pass):** global uniqueness, not per-organization. See rationale below. |
+| password_hash | TEXT | nullable — NULL until an invited user completes `POST /auth/invitations/{token}/accept` (API Spec §1); a user row exists from the moment they're invited, but has no usable credential until acceptance |
 | name | TEXT NOT NULL | |
 | role | TEXT NOT NULL DEFAULT 'member' | CHECK IN ('owner','admin','member') |
 | avatar_url | TEXT | |
 | last_login_at | TIMESTAMPTZ | |
 | invited_by | UUID REFERENCES users(id) | |
+| invitation_token_hash | TEXT | nullable — hash of the pending invitation token; cleared on acceptance. Never store the raw token. |
+| invitation_expires_at | TIMESTAMPTZ | nullable — invitations expire (default 7 days); an expired, unaccepted invite requires a fresh `POST /auth/invite`, not a token refresh |
 | status | TEXT NOT NULL DEFAULT 'invited' | CHECK IN ('invited','active','suspended') |
 | created_at / updated_at / deleted_at | — | standard |
 
-**Constraints:** `UNIQUE (organization_id, email)`; exactly one `owner` per organization enforced at the application layer (not a DB constraint, since ownership transfer needs a brief two-owner window during transfer).
+**Constraints:** `email` is `UNIQUE` globally (see decision note below); exactly one `owner` per organization enforced at the application layer (not a DB constraint, since ownership transfer needs a brief two-owner window during transfer).
 **Indexes:** `(organization_id, role)` — used constantly for permission checks.
+
+**Decision record — global vs. per-organization email uniqueness (resolved this pass):** the original design made `email` unique per organization specifically to leave room for one person belonging to multiple organizations (e.g., a consultant working two client accounts). But multi-org membership for a single user is explicitly *not* a supported scenario at MVP (see the former Open Item #4, now resolved by this same decision) — and per-org uniqueness broke `POST /auth/login`, which authenticates by `{email, password}` alone with no organization selector, and had no way to disambiguate if the same email existed as separate rows in two different orgs. Rather than carry that unresolved ambiguity into the auth implementation, `email` is now globally unique. One email = one account = one organization at MVP. This is a cheap constraint to relax later (drop the global `UNIQUE`, add back an org-scoped one, add an org-picker step to login) if multi-org-per-person ever becomes a real, prioritized feature — it is not being designed around speculatively now.
 
 ### 1.3 Cold-Start Onboarding State
 
@@ -563,6 +604,8 @@ NeuronOS uses a consistent `(_type, _id)` pair rather than a single generic fore
 
 ## 9. Migration & Versioning Notes
 
+**Decision record — full schema built in Phase 0, app code scoped per phase (resolved this pass):** this document covers all MVP + Phase 2 entities in one pass, but the Roadmap explicitly excludes the Projects, Meetings, and Automations-builder modules from Phase 1. Rather than leave it ambiguous whether Phase 0's initial migration should create only Phase-1-relevant tables or everything, the decision is: **Phase 0 creates the full schema below — every table in this document — via Alembic, in one coherent migration set.** Application/API/service-layer code is still built strictly per the Roadmap's phase scope (e.g., no `Project`/`Meeting`/`Automation` routes or services exist until their phase arrives) — the tables simply sit unused until then. This is the cheaper direction to be wrong in: adding a nullable column or a new table later is a low-risk additive migration, while retrofitting foreign keys (e.g., `projects.customer_id`, `tasks.source_meeting_id`) onto tables that already have production data is genuinely painful. The risk this accepts is a schema that's briefly ahead of the product surface — acceptable, since unused tables carry no runtime cost and this repo's migration history is the actual source of truth for "what exists," not a proxy for "what's shipped" (that's what the Roadmap phase gates are for).
+
 - All schema changes go through Alembic; every migration must be reversible (`downgrade()` implemented, not `pass`).
 - Additive changes (new nullable column, new table) can ship without a maintenance window; changing a `CHECK` constraint's allowed values or altering a column type requires a backfill migration plan documented in the PR.
 - `document_chunks.embedding` dimensionality is locked in at the first migration that creates the table — changing embedding models later requires a full re-embedding backfill job, not a simple column alter. Flag this decision for sign-off before Phase 1 ships (this is the single hardest-to-reverse schema decision in the system).
@@ -574,7 +617,7 @@ NeuronOS uses a consistent `(_type, _id)` pair rather than a single generic fore
 1. Confirm embedding model (and therefore `VECTOR(n)` dimension) before the first migration touching `document_chunks` — this is expensive to change later.
 2. Decide whether `automations` trigger/condition/action should be normalized into separate tables now vs. at the start of Phase 2 (see §6.1 note) — recommend deferring, but the team should explicitly agree, not default into it.
 3. Legal hold / litigation-hold flag on soft-deleted rows is noted as a Phase 3+ need (§0.2) — not designed in detail here.
-4. Multi-org membership for a single user (a consultant working across two client orgs) is not supported by the current `users` table design (`email` unique per org, not globally) — confirm this is acceptable for MVP before it becomes a blocking request from an early customer.
+4. **[Resolved this pass]** Multi-org membership for a single user (a consultant working across two client orgs) is not supported by the current `users` table design — confirmed acceptable for MVP, and `email` is now globally `UNIQUE` (not per-org) as a direct consequence, since per-org uniqueness only existed to leave room for a feature that isn't being built. See §1.2's decision record. Revisit if multi-org-per-person becomes a real prioritized request.
 5. **[Resolved this pass]** Idempotency on execution jobs — see §7.4. Applied to `ai_action_executions` and `automation_runs`; extend the same pattern to any future job with an external side effect.
 6. **[Resolved this pass]** Automation autonomy vs. approve-first contradiction — see §6.1's `mode` state machine (`dry_run` → `graduating` → `live`).
 7. **[Resolved this pass]** Score/algorithm versioning — see §7.5 (`score_algorithm_version`, `score_history` table).
@@ -590,3 +633,10 @@ NeuronOS uses a consistent `(_type, _id)` pair rather than a single generic fore
 17. **[Fixed during verification pass]** `ai_actions.action_type` had no constraint at all (freeform text with only "e.g." examples), while a separate severity-mapping table implied a fixed set of values with specific severity/reversibility — nothing in the schema actually enforced the connection between the two. Fixed by adding `action_type_registry` (§7.1) as the single source of truth, with `ai_actions.action_type` as a real foreign key into it, and application logic populating `severity_tier`/`is_reversible` from the registry rather than trusting each engine to set them correctly per instance.
 18. **[Fixed during verification pass]** `automations.action_type`'s value set (`send_email`, etc.) didn't obviously map onto the more specific `ai_actions.action_type` values (`send_followup_email`, `send_contract_email`) used once a `graduating`-mode automation creates an AI Action — flagged with an explicit note that this mapping needs to be defined before the Phase 2 automation builder ships, not assumed to be 1:1.
 19. **New open item (surfaced during verification):** `score_history` (§7.5) is append-only with no retention/downsampling policy — will grow unbounded if a snapshot is written on every recompute. Needs a policy (cap write frequency, or downsample old data) before Phase 2 usage volume makes this a real storage/performance concern.
+20. **[Resolved this pass]** Login had no way to disambiguate a per-org-unique email across two organizations, since `POST /auth/login` takes only `{email, password}` with no org selector — resolved by making `email` globally unique (§1.2 decision record), consistent with multi-org-per-person being out of scope for MVP (item 4 above).
+21. **[Resolved this pass]** No endpoint or schema support existed for an invited user to actually accept an invitation and set a password — `users.password_hash` starts NULL at invite time, and `invitation_token_hash`/`invitation_expires_at` (§1.2) back the new `POST /auth/invitations/{token}/accept` endpoint (API Spec §1). Without this, Phase 0's own exit criteria ("invite a teammate") could not actually be completed end-to-end.
+22. **[Resolved this pass]** RLS's `SET LOCAL app.current_org_id` pattern (§0.1) had an unstated dependency on connection pooling mode — transaction-mode pooling could theoretically hand a connection with a stale org context to a different tenant's request under concurrent load. Resolved by adopting session-mode pooling as a deliberate, documented infrastructure decision (§0.1) rather than leaving it to whatever a hosting provider defaults to.
+23. **[Resolved this pass]** Whether the full schema (including Phase 2-only tables like `projects`/`meetings`/`automations`) should be created in Phase 0 or phased alongside app code was undecided — resolved: full schema now via Alembic, app/API code still scoped strictly per Roadmap phase (§9's decision record).
+24. **[Resolved during Phase 0 implementation]** The standard RLS policy has no way to serve `POST /auth/login`, `POST /auth/signup`, or `POST /auth/invitations/{token}/accept`, since none of them have an organization context yet — this surfaced only once the auth endpoints were actually being implemented against the schema, not during spec review. Resolved by the narrow `auth_service_bypass` policy on `users` only (§0.1 addendum) rather than a database-role-level RLS bypass, keeping the exception visible in the table's own policy definition.
+25. **[Resolved during Phase 0 implementation — found by a real cross-tenant test, not by review]** RLS was silently not enforced at all: the app was connecting as the table-owning migration role, which Postgres exempts from RLS regardless of `ENABLE ROW LEVEL SECURITY`. See §0.1's `FORCE ROW LEVEL SECURITY` addition and §0.1.1's new `neuronos_app` restricted role — the application must always connect as this role, never as the owner.
+26. **[Resolved during Phase 0 implementation]** `current_setting('app.current_org_id')` in the `tenant_isolation` policy was missing its `missing_ok` argument, causing every query against a table with more than one applicable policy (i.e. `users`, which also has `auth_service_bypass`) to error out in any session that had set the other policy's variable but not this one. Fixed to `current_setting('app.current_org_id', true)` — see §0.1.
