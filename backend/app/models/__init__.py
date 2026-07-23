@@ -6,6 +6,7 @@ to Alembic autogenerate and to the test database setup."""
 from app.models.ai_action import ActionTypeRegistry, AIAction, AIActionExecution
 from app.models.automation import Automation, AutomationRun
 from app.models.base import Base
+from app.models.chat import ChatMessage, Conversation
 from app.models.customer import Customer, Deal, TimelineEvent
 from app.models.document import Document, DocumentChunk, DocumentTag, LinkedEntity
 from app.models.integration import IntegrationConnection
@@ -19,6 +20,8 @@ __all__ = [
     "Base",
     "Organization",
     "User",
+    "Conversation",
+    "ChatMessage",
     "Customer",
     "TimelineEvent",
     "Deal",

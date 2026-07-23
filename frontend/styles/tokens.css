@@ -29,6 +29,15 @@
   --neuron-blue: #2e7dd1;
   --neuron-blue-tint: #eaf3fc;
 
+  /* Brand system (docs/mockups/neuronos_brand_concept.html §03): named here as the two
+     colors the mark itself is built from, plus the one new accent it introduces. Deliberately
+     not applied to the semantic status colors above — those already carry a specific,
+     shipped meaning (green/amber/red/blue) that's unrelated to the brand mark's narrower
+     "signal leaving the system" concept, so mixing them would blur two different systems. */
+  --neuron-violet: #8b7cf6;
+  --neuron-indigo: #5a48d8;
+  --neuron-spark: #6ee7f9;
+
   --neuron-radius: 14px;
   --neuron-shadow: 0 1px 2px rgba(20, 20, 43, 0.04), 0 8px 24px rgba(20, 20, 43, 0.05);
 
@@ -37,33 +46,10 @@
   --neuron-rail-width: 300px;
 }
 
-/* A dark-mode preview exists (docs/mockups/UI_design1.png, bottom-right panel), confirming
-   dark mode is an intended surface, not this repo inventing one — but exact hex values
-   haven't been sampled from it (a small screenshot of a phone preview isn't a reliable
-   source for precise color extraction). The values below are this repo's own reasonable
-   extrapolation from the light tokens, directionally consistent with that preview, not a
-   pixel-sampled source of truth — flag for design review to confirm exact values before
-   treating this as final, per Blueprint §16's note that mockups win on disagreement. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --neuron-bg: #14151d;
-    --neuron-card: #1b1d28;
-    --neuron-border: #2a2c38;
-    --neuron-text: #f2f3f7;
-    --neuron-text-dim: #b3b6c4;
-    --neuron-text-faint: #7d8093;
-
-    --neuron-primary: #8b7cf6;
-    --neuron-primary-dark: #a396f8;
-    --neuron-primary-tint: #2a2454;
-
-    --neuron-green: #35c98a;
-    --neuron-green-tint: #123324;
-    --neuron-amber: #f0a83a;
-    --neuron-amber-tint: #3a2a0d;
-    --neuron-red: #f0716f;
-    --neuron-red-tint: #3a1a1a;
-    --neuron-blue: #5b9de0;
-    --neuron-blue-tint: #142a3a;
-  }
-}
+/* Dark mode is a real, intended surface (docs/mockups/UI_design1.png's phone preview) but is
+   not scheduled in any Phase 1 Roadmap document, and a small phone-preview screenshot isn't a
+   reliable source for pixel-accurate color extraction. Rather than auto-apply an unverified,
+   never-design-reviewed palette whenever a visitor's OS happens to prefer dark mode — which
+   silently replaces the actual, pixel-matched mockup theme with a guess — this repo renders
+   the light theme unconditionally until dark mode is scheduled and its colors are confirmed
+   against a real design pass. See Blueprint §16: mockups win on disagreement.*/

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, Integer, SmallInteger, Text
+from sqlalchemy import CheckConstraint, ForeignKey, ForeignKeyConstraint, Integer, SmallInteger, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -29,10 +29,12 @@ class Automation(UUIDPKMixin, TenantMixin, CreatedAtMixin, UpdatedAtMixin, Creat
             "'contract_expiring','new_customer')",
             name="trigger_type_valid",
         ),
-        CheckConstraint(
-            "action_type IN ('send_email','create_task','notify_user','send_invoice_reminder')",
-            name="action_type_valid",
-        ),
+        # Real FK into action_type_registry (Database Spec §6.1 decision record, resolved
+        # during Phase 1 Automations implementation) — matches ai_actions.action_type's
+        # pattern, since a graduating-mode automation creates a real ai_actions row using
+        # this same value and the two must speak the same vocabulary, not two
+        # independently-maintained enums that can silently drift apart.
+        ForeignKeyConstraint(["action_type"], ["action_type_registry.action_type"]),
     )
 
     name: Mapped[str] = mapped_column(Text, nullable=False)

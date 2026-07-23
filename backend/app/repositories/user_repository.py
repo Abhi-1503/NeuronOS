@@ -29,5 +29,20 @@ class UserRepository:
         )
         return result.scalar_one_or_none()
 
+    async def list_for_organization(self) -> list[User]:
+        """RLS-scoped (Database Spec §0.1) — no explicit organization_id filter needed
+        here, unlike `get_by_email`/`get_by_invitation_token_hash` above, which are
+        deliberately pre-authentication, cross-tenant lookups."""
+        result = await self._session.execute(
+            select(User).where(User.deleted_at.is_(None)).order_by(User.created_at)
+        )
+        return list(result.scalars().all())
+
+    async def count_owners(self) -> int:
+        result = await self._session.execute(
+            select(User).where(User.role == "owner", User.deleted_at.is_(None))
+        )
+        return len(result.scalars().all())
+
     def add(self, user: User) -> None:
         self._session.add(user)

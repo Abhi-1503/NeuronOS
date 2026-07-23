@@ -73,3 +73,37 @@ def generate_invitation_token() -> tuple[str, str, datetime]:
 
 def hash_invitation_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+DELETION_CONFIRMATION_MINUTES = 10
+
+
+def create_deletion_confirmation_token(*, organization_id: str, requested_by_user_id: str) -> tuple[str, datetime]:
+    """API Spec §11's `DELETE /organization` two-step confirmation (Danger Zone) — a
+    short-lived, purpose-scoped JWT rather than a new database table, since this needs
+    no persistence beyond its own short validity window. Binds to *both* the
+    organization and the specific user who requested it, so a stolen/leaked token from
+    a different session can't be replayed to confirm a different org's deletion."""
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=DELETION_CONFIRMATION_MINUTES)
+    payload: dict[str, Any] = {
+        "organization_id": organization_id,
+        "requested_by_user_id": requested_by_user_id,
+        "exp": expires_at,
+        "type": "delete_organization_confirmation",
+    }
+    token = jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    return token, expires_at
+
+
+def verify_deletion_confirmation_token(
+    token: str, *, organization_id: str, user_id: str
+) -> bool:
+    try:
+        payload = decode_token(token)
+    except ValueError:
+        return False
+    return (
+        payload.get("type") == "delete_organization_confirmation"
+        and payload.get("organization_id") == organization_id
+        and payload.get("requested_by_user_id") == user_id
+    )

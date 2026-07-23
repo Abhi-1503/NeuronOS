@@ -6,8 +6,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 
+from app.api.v1.ai_actions import router as ai_actions_router
+from app.api.v1.automations import router as automations_router
 from app.api.v1.auth import router as auth_router
+from app.api.v1.chat import router as chat_router
+from app.api.v1.customers import router as customers_router
+from app.api.v1.documents import router as documents_router
+from app.api.v1.integrations import router as integrations_router
+from app.api.v1.linked_entities import router as linked_entities_router
+from app.api.v1.onboarding import router as onboarding_router
 from app.api.v1.organization import router as organization_router
+from app.api.v1.reports import router as reports_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging, request_id_ctx
 
@@ -78,6 +87,15 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(organization_router, prefix="/api/v1")
+app.include_router(onboarding_router, prefix="/api/v1")
+app.include_router(customers_router, prefix="/api/v1")
+app.include_router(ai_actions_router, prefix="/api/v1")
+app.include_router(reports_router, prefix="/api/v1")
+app.include_router(integrations_router, prefix="/api/v1")
+app.include_router(automations_router, prefix="/api/v1")
+app.include_router(documents_router, prefix="/api/v1")
+app.include_router(linked_entities_router, prefix="/api/v1")
+app.include_router(chat_router, prefix="/api/v1")
 
 
 @app.get("/health")

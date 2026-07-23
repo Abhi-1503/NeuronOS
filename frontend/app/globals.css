@@ -8,8 +8,8 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-heading);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -126,5 +126,83 @@
   }
   html {
     @apply font-sans;
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-heading);
+  }
+
+  /* Every button and link in the app gets tactile hover/press feedback by default —
+     most of the app's interactive surfaces (customer rows, action cards, nav items)
+     are plain <button>/<Link> elements with inline colors, not the shared <Button>
+     component, so a blanket rule here reaches all of them at once instead of hand-adding
+     the same transition to dozens of call sites. */
+  button:not(:disabled), a {
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+  button:not(:disabled):hover, a:hover {
+    filter: brightness(1.06);
+  }
+  button:not(:disabled):active {
+    transform: scale(0.97);
+  }
+}
+
+/* Motion & interaction primitives used throughout the app — buttons, cards, nav items,
+   and the marketing/auth pages all draw from this shared set rather than each page
+   reinventing its own transition timing. */
+@keyframes neuron-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(2%, -4%) scale(1.04); }
+}
+@keyframes neuron-float-slow {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-3%, 3%) scale(1.06); }
+}
+@keyframes neuron-gradient-pan {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes neuron-fade-in-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.neuron-orb-1 { animation: neuron-float 14s ease-in-out infinite; }
+.neuron-orb-2 { animation: neuron-float-slow 18s ease-in-out infinite; }
+
+.neuron-gradient-text {
+  background-size: 200% 200%;
+  animation: neuron-gradient-pan 6s ease-in-out infinite;
+}
+
+.neuron-grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(108, 92, 231, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(108, 92, 231, 0.06) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
+
+.neuron-hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.neuron-hover-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(20, 20, 43, 0.1);
+}
+
+.neuron-press {
+  transition: transform 0.12s ease;
+}
+.neuron-press:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neuron-orb-1, .neuron-orb-2, .neuron-gradient-text {
+    animation: none;
+  }
+  .neuron-hover-lift, .neuron-press {
+    transition: none;
   }
 }

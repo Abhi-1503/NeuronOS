@@ -61,7 +61,7 @@ Cursor-based, not offset-based (offset pagination degrades on large, frequently-
 
 **Gap addressed:** a retried request (network retry, double-clicked button, replayed background job) could otherwise cause the same email to send twice or the same record to be created twice — and unlike most write operations, these cannot be undone after the fact.
 
-Every endpoint that triggers an irreversible external effect — `POST /ai-actions/{id}/approve`, `POST /meetings/{id}/summarize`, `POST /automations/{id}/dry-run`, `POST /documents` — **requires** an `Idempotency-Key` header:
+Every endpoint that triggers an irreversible external effect — `POST /ai-actions/{id}/approve`, `POST /meetings/{id}/summarize`, `POST /automations/{id}/evaluate` (**renamed from `dry-run` — resolved during Phase 1 Automations implementation:** this section referenced `POST /automations/{id}/dry-run` from the start, but §8 never actually defined such an endpoint — a real gap between the two sections, not just a naming nicety, since there was no way to make one specific automation check its trigger against real data on demand. See §8 for the endpoint as built and why `evaluate` was chosen over reusing `dry-run`.), `POST /documents` — **requires** an `Idempotency-Key` header:
 
 ```
 Idempotency-Key: <client-generated UUID, stable across retries of the same logical request>
@@ -148,8 +148,9 @@ Used in every endpoint table below: **Owner**, **Admin**, **Member**, **Any** (a
 - **Permissions:** Any (visibility may be scoped by org policy — Phase 3+).
 
 ### `POST /customers`
-- **Body:** `{ "name": string, "owner_user_id"?: uuid, "status"?: string }`
+- **Body:** `{ "name": string, "owner_user_id"?: uuid, "status"?: string, "last_contact_at"?: ISO8601 }`
 - **Validation:** `name` required, 1–200 chars.
+- **Gap addressed (surfaced during Phase 1 implementation):** `last_contact_at` was missing from this body entirely, but Onboarding Path C (`NeuronOS_Onboarding_Spec.md` §2) explicitly requires capturing "name + last contact date" per customer at manual-entry time, with no timeline event or integration to derive it from otherwise. Added as optional — omitting it leaves `last_contact_at` `NULL`, which the Decision Engine (§14 below) treats as "no known contact," not as "contacted just now."
 - **Response 201:** full customer object.
 - **Permissions:** Any (Member can create; visibility of others' customers may still be scoped).
 
@@ -186,7 +187,16 @@ Used in every endpoint table below: **Owner**, **Admin**, **Member**, **Any** (a
 ### `POST /customers/{id}/deals`
 - **Body:** `{ "title": string, "stage"?: string, "amount": number, "currency"?: string, "expected_close_date"?: date }`
 - **Validation:** `amount > 0`.
+- **Behavior:** recomputes the parent customer's `revenue_total` (sum of non-`lost` deal amounts) — see the new `PATCH` endpoint below for why this can't just be set once at creation.
 - **Response 201:** created deal.
+- **Permissions:** Any.
+
+### `PATCH /customers/{id}/deals/{deal_id}`
+- **Purpose:** **Gap addressed (surfaced during Phase 1 Reports implementation):** no endpoint existed anywhere to move a deal out of `proposal` — every deal would stay open forever, which makes revenue reporting (§9) meaningless, since nothing could ever be counted as won or lost.
+- **Body:** `{ "stage"?: "proposal"|"negotiation"|"won"|"lost", "title"?: string, "amount"?: number, "expected_close_date"?: date }`
+- **Behavior:** moving `stage` to `won` or `lost` sets `closed_at`; moving away from either clears it. Any change recomputes the parent customer's `revenue_total`.
+- **Response 200:** updated deal.
+- **Errors:** `404 not_found` if the deal doesn't belong to the given customer.
 - **Permissions:** Any.
 
 ---
@@ -290,11 +300,19 @@ Used in every endpoint table below: **Owner**, **Admin**, **Member**, **Any** (a
 
 ### `POST /documents`
 - **Purpose:** upload a new document.
-- **Body:** multipart/form-data — `file`, `title`?, `visibility`?.
+- **Body:** multipart/form-data — `file`, `title`?, `visibility`?, `force`? (bypasses the content-hash duplicate check below).
 - **Validation:** file type in allowed set (pdf, docx, pptx, xlsx); max size (e.g., 50MB, confirm against R2 plan limits).
 - **Behavior:** file stored in R2, `documents` row created synchronously, chunking + embedding + AI summary generation happen async (Knowledge Engine job).
+- **Duplicate detection:** a SHA-256 hash of the file content is compared against other non-deleted documents in the organization. A match returns `409 duplicate_content` unless `force=true` is set — this catches a user re-uploading the same file as a second, separate logical action, which an `Idempotency-Key` alone (which only protects a *retried* request) cannot.
 - **Response 202:** `{ "data": { "document_id": uuid, "status": "processing" } }`
+- **Errors:** `409 duplicate_content`.
 - **Permissions:** Any (subject to `visibility` rules on read).
+
+### `GET /documents`
+- **Gap addressed:** the Knowledge Hub needs a way to browse recent documents without requiring a search term first; `GET /documents/search` alone can't do that since `q` is required.
+- **Query params:** `limit` (default 25, max 100).
+- **Response 200:** documents ordered by `created_at` descending.
+- **Permissions:** Any (results filtered by `visibility`).
 
 ### `GET /documents/{id}`
 - **Response 200:** document metadata, `ai_summary`, `tags`, `linked_entities`.
@@ -306,7 +324,7 @@ Used in every endpoint table below: **Owner**, **Admin**, **Member**, **Any** (a
 - **Query params:** `q` (required), `file_type`, `limit`.
 - **Behavior:** hybrid search — keyword match on `documents.title` + vector similarity on `document_chunks.embedding` for `q`, merged and ranked.
 - **Response 200:** ranked list of documents with matching chunk excerpts.
-- **Permissions:** Any (results filtered by `visibility`).
+- **Permissions:** Any (results filtered by `visibility`). **Gap addressed:** `visibility='admin_only'` documents were excluded from `GET /documents/{id}` for non-admin/owner requesters but not from search results — a Member could recover an admin-only document's title and excerpt through search even though direct access was blocked. Now excluded at the query level for non-admin/owner requesters (Blueprint §5.3's hard requirement).
 - **Rate limit:** AI-generation limit (embedding the query counts as generation-adjacent).
 
 ### `DELETE /documents/{id}`
@@ -363,20 +381,25 @@ Used in every endpoint table below: **Owner**, **Admin**, **Member**, **Any** (a
 - **Permissions:** Admin, Owner (the person doing initial setup).
 
 ### `POST /onboarding/complete`
-- **Purpose:** marks onboarding as complete once the org has enough data for a real insight (checked server-side against the actual data — e.g., ≥1 customer with a timeline event, or ≥1 connected integration with a completed initial sync — not just a user clicking "done").
-- **Behavior:** sets `organizations.onboarding_completed_at`; if this is also the first time any real insight has been generated for this org, also sets `onboarding_first_insight_at`.
-- **Response 200:** updated onboarding status.
+- **Purpose:** marks onboarding as complete once the org has enough data for a real insight (checked server-side against the actual data — not just a user clicking "done").
+- **Threshold (resolved this pass, Open Item #13):** ≥1 active customer exists. This is the concrete number chosen for Phase 1 — the smallest amount of data the Decision Engine can meaningfully reason about at all — not a validated figure; revisit against real early-user data per the Onboarding Spec's own open item.
+- **Behavior:** sets `organizations.onboarding_completed_at`. If this is also the first time any real insight has been generated for this org, runs the Decision Engine once across all of the org's customers and sets `onboarding_first_insight_at`, returning what it found in the new `first_insight` field below — regardless of whether anything was flagged (Onboarding Spec §3.3: a correct "nothing's wrong" is a real insight, not a failure to produce one, and must never be papered over with a fabricated risk).
+- **Response 200:** `{ "data": { "onboarding_method": string|null, "steps": [...], "first_insight_at": ISO8601|null, "first_insight": { "type": "risk_flag"|"all_clear", "message": string, "ai_action_id": uuid|null }|null } }` — `first_insight` is only populated the one time this call actually reaches the milestone; `null` on every call after that (status is already reflected in `first_insight_at`).
+- **Errors:** `422 validation_error` if the data threshold above isn't met yet.
 - **Permissions:** Admin, Owner.
 
 ---
 
 ## 6. AI Workspace (Chat)
 
+**Schema:** `conversations` / `chat_messages` (Database Spec §8A) — a gap found and resolved during Phase 1 implementation (this document previously specified these endpoints with no backing table anywhere).
+
 ### `POST /chat/messages`
 - **Purpose:** send a message to the AI Workspace; the core RAG + reasoning endpoint.
 - **Body:** `{ "conversation_id"?: uuid, "message": string }` — omitting `conversation_id` starts a new conversation.
-- **Behavior:** retrieves relevant context (Knowledge Engine RAG + Context Engine relationship graph scoped to what the requesting user can see), generates a response with the Action/Decision engines as needed, returns with source citations.
+- **Behavior:** retrieval combines a keyword search over documents (tokenized from the message, respecting `visibility` the same way `GET /documents/search` does) and a rule-based customer-name mention match (Context Engine v1, Blueprint §14's "rule-based, not ML" MVP approach) — generates a response with Anthropic when `ANTHROPIC_API_KEY` is configured; with no key, degrades to an honest, clearly-labeled presentation of the raw retrieved context rather than fabricating a response.
 - **Response 200:** `{ "data": { "conversation_id": uuid, "message": { "role": "assistant", "content": string, "citations": [{ "type": "document"|"customer"|"project", "id": uuid, "excerpt": string }] } } }`
+- **Errors:** `403 permission_denied` (sending to a conversation you don't own), `404 not_found` (unknown `conversation_id`).
 - **Permissions:** Any — response content must never leak data outside the requesting user's visibility scope (Blueprint §5.3 — this is a hard requirement, tested explicitly, not assumed from RAG source filtering alone).
 - **Rate limit:** AI-generation limit.
 
@@ -457,6 +480,14 @@ Used in every endpoint table below: **Owner**, **Admin**, **Member**, **Any** (a
 ### `GET /automations/{id}/runs`
 - **Response 200:** paginated run history (for the "Triggered 48 times, Success 96%" stat drill-down).
 - **Permissions:** Admin, Owner.
+
+### `POST /automations/{id}/evaluate`
+- **Purpose:** **Gap addressed (resolved during Phase 1 implementation — see §0.5's note):** checks this one automation's trigger against current data right now and acts according to its current `mode` — the endpoint §0.5 always assumed existed under the name `dry-run`, formalized here under a clearer name instead (a `dry_run`-mode automation still only simulates regardless of what this endpoint is called; the confusing part was calling a trigger-check verb `dry-run` right next to the existing `dry-run-results` noun for a *different*, already-existing concept — viewing past runs).
+- **Headers:** `Idempotency-Key` — required for consistency with every other side-effecting endpoint (§0.5), though the actual safety here doesn't come from checking this header's value: it comes from `automation_runs`'s own dedup key, `(automation_id, trigger_type, target_entity_id)` (Database Spec §6.2), which never re-fires for the same target once matched once. Calling this endpoint twice — with the same key, a different key, or no retry logic at all — is always safe; it just won't create duplicate runs for targets it already caught.
+- **Behavior:** per the automation's `mode` — `dry_run` records a `simulated` run per newly-matched target and sends nothing; `graduating` creates a real `ai_actions` row (`status = 'suggested'`) per newly-matched target, exactly like any other AI Action; `live` records the run as `success` and executes immediately (Phase 1 note: "executes" means the same as `POST /ai-actions/{id}/approve` does today — there is no live external send channel yet, so this marks the action done and preserves the drafted content for the user to act on themselves, not a literal external send). `paused` automations are skipped.
+- **Response 200:** `{ "data": [ <automation_run>, ... ] }` — the runs created by this call (empty if nothing newly matched).
+- **Permissions:** Admin, Owner.
+- **Note:** there is no scheduler running this automatically yet (no Celery beat / cron — Blueprint §8's background-job infrastructure is deferred until an actual external integration needs it). Phase 1 relies on this being called at meaningful points (e.g., whenever Pulse loads) rather than a real periodic check — flagged as a real limitation, not a hidden one.
 
 ---
 

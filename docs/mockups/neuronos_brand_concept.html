@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NeuronOS — Brand &amp; Logo System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --field:#0F0B24;
+    --field-2:#171034;
+    --paper:#F7F6FB;
+    --ink:#1B1D28;
+    --indigo:#5A48D8;
+    --violet:#8B7CF6;
+    --spark:#6EE7F9;
+    --amber:#E58A00;
+    --red:#E14B4B;
+    --mist:#9498A6;
+    --line: rgba(255,255,255,.08);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--field);
+    color:#EDEBFA;
+    font-family:'Inter',sans-serif;
+    overflow-x:hidden;
+  }
+  ::selection{background:var(--spark); color:#0F0B24;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .display{font-family:'Space Grotesk',sans-serif;}
+
+  /* ===== HERO ===== */
+  .hero{
+    position:relative;
+    min-height:100vh;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center;
+    padding:40px 24px;
+    overflow:hidden;
+  }
+  #net{position:absolute; inset:0; z-index:0;}
+  .hero-content{position:relative; z-index:2;}
+
+  .mark-wrap{width:min(46vw, 320px); margin:0 auto 8px; filter:drop-shadow(0 0 40px rgba(110,231,249,.15));}
+  .mark-wrap svg{width:100%; height:auto; display:block;}
+
+  .wordmark{
+    font-size:clamp(2.4rem, 6vw, 4.6rem);
+    font-weight:600;
+    letter-spacing:-0.02em;
+    margin-top:6px;
+    opacity:0;
+    animation:riseIn .9s .9s cubic-bezier(.2,.8,.2,1) forwards;
+  }
+  .wordmark .os{color:var(--violet); font-weight:500;}
+  .tagline{
+    margin-top:14px;
+    font-size:.78rem;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    color:var(--mist);
+    opacity:0;
+    animation:riseIn .9s 1.2s cubic-bezier(.2,.8,.2,1) forwards;
+  }
+  @keyframes riseIn{from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);}}
+
+  .scroll-cue{
+    position:absolute; bottom:34px; left:50%; transform:translateX(-50%);
+    font-family:'JetBrains Mono',monospace; font-size:.68rem; letter-spacing:.15em; color:var(--mist);
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    opacity:0; animation:riseIn 1s 1.8s forwards;
+  }
+  .scroll-cue .stick{width:1px; height:26px; background:linear-gradient(var(--mist), transparent); animation:stickPulse 2s ease-in-out infinite;}
+  @keyframes stickPulse{0%,100%{opacity:.3;} 50%{opacity:1;}}
+
+  /* ===== SECTIONS ===== */
+  section{
+    position:relative; z-index:2;
+    max-width:1080px; margin:0 auto;
+    padding:120px 28px;
+  }
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:.72rem; letter-spacing:.2em; text-transform:uppercase;
+    color:var(--spark); margin-bottom:18px; display:flex; align-items:center; gap:10px;
+  }
+  .eyebrow::before{content:''; width:16px; height:1px; background:var(--spark);}
+  h2{
+    font-family:'Space Grotesk',sans-serif; font-weight:600;
+    font-size:clamp(1.8rem, 3.4vw, 2.6rem);
+    letter-spacing:-0.01em; max-width:640px; line-height:1.15;
+  }
+  .lede{
+    margin-top:18px; max-width:560px; color:#C7C4DE; font-size:1.02rem; line-height:1.65;
+  }
+
+  /* ---- The Mark section ---- */
+  .mark-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:center; margin-top:64px;
+  }
+  .construction{
+    position:relative; background:var(--field-2); border:1px solid var(--line); border-radius:18px; padding:36px;
+  }
+  .construction svg{width:100%; height:auto;}
+  .construction .cap{margin-top:18px; font-family:'JetBrains Mono',monospace; font-size:.7rem; color:var(--mist); letter-spacing:.05em; text-align:center;}
+  .anatomy{display:flex; flex-direction:column; gap:22px;}
+  .anatomy-item{display:flex; gap:16px; align-items:flex-start;}
+  .anatomy-dot{width:10px; height:10px; border-radius:50%; margin-top:6px; flex-shrink:0;}
+  .anatomy-item h4{font-family:'Space Grotesk',sans-serif; font-size:1.02rem; font-weight:600; margin-bottom:4px;}
+  .anatomy-item p{font-size:.92rem; color:#B7B3D1; line-height:1.55;}
+
+  /* ---- Motion section ---- */
+  .motion-stage{
+    margin-top:56px; background:radial-gradient(circle at 50% 30%, #1A1440, #0F0B24 70%);
+    border:1px solid var(--line); border-radius:22px;
+    padding:60px 40px; display:flex; flex-direction:column; align-items:center;
+  }
+  .motion-mark{width:min(50vw,260px);}
+  .state-toggle{display:flex; gap:10px; margin-top:40px; flex-wrap:wrap; justify-content:center;}
+  .state-btn{
+    font-family:'JetBrains Mono',monospace; font-size:.78rem; letter-spacing:.05em;
+    padding:10px 20px; border-radius:30px; border:1px solid var(--line); background:transparent; color:#C7C4DE;
+    cursor:pointer; transition:all .25s ease; display:flex; align-items:center; gap:8px;
+  }
+  .state-btn .sw{width:8px; height:8px; border-radius:50%;}
+  .state-btn.active{background:#EDEBFA; color:#0F0B24; border-color:#EDEBFA;}
+  .state-desc{margin-top:20px; font-size:.85rem; color:var(--mist); max-width:420px; text-align:center; min-height:40px;}
+
+  /* ---- Color & Type ---- */
+  .swatches{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:16px; margin-top:56px;}
+  .swatch{border-radius:14px; overflow:hidden; border:1px solid var(--line);}
+  .swatch .chip{height:96px;}
+  .swatch .meta{padding:14px 16px; background:var(--field-2);}
+  .swatch .name{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:.92rem;}
+  .swatch .hex{font-family:'JetBrains Mono',monospace; font-size:.72rem; color:var(--mist); margin-top:2px;}
+  .swatch .role{font-size:.76rem; color:#9C98BC; margin-top:8px; line-height:1.4;}
+
+  .type-rows{margin-top:56px; display:flex; flex-direction:column; gap:0;}
+  .type-row{padding:28px 0; border-top:1px solid var(--line); display:grid; grid-template-columns:140px 1fr; gap:24px; align-items:baseline;}
+  .type-row .role-label{font-family:'JetBrains Mono',monospace; font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; color:var(--spark);}
+  .type-row .sample.display-sample{font-family:'Space Grotesk',sans-serif; font-size:2.2rem; font-weight:600;}
+  .type-row .sample.body-sample{font-family:'Inter',sans-serif; font-size:1.1rem; color:#D8D5EC;}
+  .type-row .sample.mono-sample{font-family:'JetBrains Mono',monospace; font-size:.95rem; color:#D8D5EC; letter-spacing:.02em;}
+
+  /* ---- In the Wild ---- */
+  .wild-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:22px; margin-top:56px;}
+  .wild-card{background:var(--field-2); border:1px solid var(--line); border-radius:16px; padding:24px; display:flex; flex-direction:column; align-items:center; gap:16px;}
+  .wild-card .cap{font-family:'JetBrains Mono',monospace; font-size:.7rem; color:var(--mist); letter-spacing:.05em; text-align:center;}
+
+  .browser-tab{background:#E7E6EF; border-radius:8px 8px 0 0; padding:8px 14px; display:flex; align-items:center; gap:8px; width:100%;}
+  .browser-tab .favicon{width:16px; height:16px; border-radius:4px; background:linear-gradient(135deg,var(--violet),var(--indigo)); flex-shrink:0;}
+  .browser-tab .ttl{font-size:.68rem; color:#4B4B57; font-family:'Inter',sans-serif;}
+
+  .app-icon{width:84px; height:84px; border-radius:20px; background:linear-gradient(135deg,var(--violet),var(--indigo)); display:flex; align-items:center; justify-content:center; box-shadow:0 12px 28px rgba(90,72,216,.35);}
+  .app-icon.dark{background:#111; border:1px solid #333;}
+  .app-icon svg{width:46px; height:46px;}
+
+  .sidebar-mini{width:100%; background:#fff; border-radius:12px; padding:14px 10px; display:flex; flex-direction:column; gap:8px;}
+  .sidebar-mini .row{display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:6px; font-size:.62rem; color:#6B7080; font-family:'Inter',sans-serif;}
+  .sidebar-mini .row.on{background:#F0EDFF; color:#5A48D8; font-weight:600;}
+  .sidebar-mini .dot{width:6px; height:6px; border-radius:50%; background:#D8D5EC;}
+  .sidebar-mini .brandrow{display:flex; align-items:center; gap:8px; padding-bottom:8px; border-bottom:1px solid #EAECF2; margin-bottom:4px;}
+  .sidebar-mini .brandmark{width:20px; height:20px; border-radius:6px; background:linear-gradient(135deg,var(--violet),var(--indigo)); flex-shrink:0;}
+  .sidebar-mini .brandname{font-size:.72rem; font-weight:700; color:#1B1D28; font-family:'Space Grotesk',sans-serif;}
+
+  .card-mockup{width:100%; aspect-ratio:1.6/1; background:linear-gradient(135deg,#171034,#0F0B24); border-radius:12px; border:1px solid var(--line); display:flex; flex-direction:column; justify-content:space-between; padding:16px;}
+  .card-mockup .top{display:flex; align-items:center; gap:8px;}
+  .card-mockup .mk{width:22px; height:22px;}
+  .card-mockup .nm{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:.82rem;}
+  .card-mockup .bottom{font-family:'JetBrains Mono',monospace; font-size:.58rem; color:var(--mist); letter-spacing:.05em;}
+
+  footer{
+    text-align:center; padding:60px 24px 80px; font-family:'JetBrains Mono',monospace; font-size:.72rem; color:var(--mist); letter-spacing:.05em;
+  }
+
+  @media (max-width: 760px){
+    .mark-grid{grid-template-columns:1fr;}
+    section{padding:80px 22px;}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important;}
+  }
+
+  :focus-visible{outline:2px solid var(--spark); outline-offset:3px;}
+</style>
+</head>
+<body>
+
+<!-- ============ HERO ============ -->
+<div class="hero">
+  <canvas id="net"></canvas>
+  <div class="hero-content">
+    <div class="mark-wrap">
+      <svg viewBox="0 0 220 200" fill="none">
+        <!-- input origin dots -->
+        <circle id="o1" cx="30" cy="40" r="4" fill="#8B7CF6" opacity="0.7"/>
+        <circle id="o2" cx="18" cy="100" r="4" fill="#8B7CF6" opacity="0.7"/>
+        <circle id="o3" cx="30" cy="160" r="4" fill="#8B7CF6" opacity="0.7"/>
+        <!-- input paths -->
+        <path id="in1" d="M30,40 C60,55 78,75 97,97" stroke="#8B7CF6" stroke-width="2.5" stroke-linecap="round"/>
+        <path id="in2" d="M18,100 C45,100 72,100 97,100" stroke="#8B7CF6" stroke-width="2.5" stroke-linecap="round"/>
+        <path id="in3" d="M30,160 C60,145 78,125 97,103" stroke="#8B7CF6" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- output path -->
+        <path id="out" d="M109,97 C132,86 156,76 180,63" stroke="url(#gradOut)" stroke-width="3.5" stroke-linecap="round"/>
+        <defs>
+          <linearGradient id="gradOut" x1="109" y1="97" x2="180" y2="63">
+            <stop offset="0%" stop-color="#5A48D8"/>
+            <stop offset="100%" stop-color="#6EE7F9"/>
+          </linearGradient>
+          <radialGradient id="gradNode" cx="35%" cy="30%" r="80%">
+            <stop offset="0%" stop-color="#B7ACFB"/>
+            <stop offset="100%" stop-color="#5A48D8"/>
+          </radialGradient>
+        </defs>
+        <!-- central node -->
+        <circle id="node" cx="103" cy="100" r="11" fill="url(#gradNode)"/>
+        <!-- terminal signal dot -->
+        <circle id="term" cx="183" cy="61" r="5" fill="#6EE7F9"/>
+      </svg>
+    </div>
+    <h1 class="wordmark">Neuron<span class="os">OS</span></h1>
+    <div class="tagline">The Intelligence Layer for Every Business</div>
+  </div>
+  <div class="scroll-cue"><span>SCROLL</span><span class="stick"></span></div>
+</div>
+
+<!-- ============ THE MARK ============ -->
+<section id="mark">
+  <div class="eyebrow">01 — The Mark</div>
+  <h2>Three signals, converging into one decision.</h2>
+  <p class="lede">The mark isn't a decorative node cluster — it's a diagram of what the product actually does. Scattered inputs (email, documents, meetings) meet at a single point, and one clear signal leaves it. That's the whole thesis, drawn as a logo.</p>
+
+  <div class="mark-grid">
+    <div class="construction">
+      <svg viewBox="0 0 220 200" fill="none">
+        <g stroke="rgba(255,255,255,.12)" stroke-width="1">
+          <line x1="0" y1="100" x2="220" y2="100"/>
+          <line x1="103" y1="0" x2="103" y2="200"/>
+          <circle cx="103" cy="100" r="70" fill="none"/>
+        </g>
+        <path d="M30,40 C60,55 78,75 97,97" stroke="#8B7CF6" stroke-width="2" stroke-linecap="round" opacity=".8"/>
+        <path d="M18,100 C45,100 72,100 97,100" stroke="#8B7CF6" stroke-width="2" stroke-linecap="round" opacity=".8"/>
+        <path d="M30,160 C60,145 78,125 97,103" stroke="#8B7CF6" stroke-width="2" stroke-linecap="round" opacity=".8"/>
+        <path d="M109,97 C132,86 156,76 180,63" stroke="#6EE7F9" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="103" cy="100" r="11" fill="#5A48D8"/>
+        <circle cx="183" cy="61" r="5" fill="#6EE7F9"/>
+        <circle cx="30" cy="40" r="3" fill="#8B7CF6"/>
+        <circle cx="18" cy="100" r="3" fill="#8B7CF6"/>
+        <circle cx="30" cy="160" r="3" fill="#8B7CF6"/>
+        <text x="103" y="14" fill="#6B6B85" font-family="JetBrains Mono" font-size="8" text-anchor="middle">135°</text>
+        <text x="8" y="96" fill="#6B6B85" font-family="JetBrains Mono" font-size="8">180°</text>
+      </svg>
+      <div class="cap">CONSTRUCTION — 3 INPUT VECTORS / 1 OUTPUT VECTOR / 8° NODE OFFSET</div>
+    </div>
+    <div class="anatomy">
+      <div class="anatomy-item">
+        <div class="anatomy-dot" style="background:#8B7CF6;"></div>
+        <div><h4>Three inputs</h4><p>Gmail, the CRM, the calendar — every disconnected tool a business already runs on. Drawn as dendrites, not straight lines: nothing about a real business's data arrives in clean geometry.</p></div>
+      </div>
+      <div class="anatomy-item">
+        <div class="anatomy-dot" style="background:#5A48D8;"></div>
+        <div><h4>One node</h4><p>The Context Engine. Slightly off-center from true geometric middle — a deliberate 8° offset so the mark reads as a moment of synthesis, not a static hub.</p></div>
+      </div>
+      <div class="anatomy-item">
+        <div class="anatomy-dot" style="background:#6EE7F9;"></div>
+        <div><h4>One signal out</h4><p>The recommendation. Bolder stroke, gradient into Spark Cyan — the only warm-bright color in the whole mark, reserved for the moment something actionable leaves the system.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ IN MOTION ============ -->
+<section id="motion">
+  <div class="eyebrow">02 — In Motion</div>
+  <h2>The mark doesn't just sit there. It reports on the system's actual state.</h2>
+  <p class="lede">Same three states the AI Actions queue already uses — Idle, Thinking, Alert — reused here rather than invented fresh, because a brand's motion language should be the product's motion language.</p>
+
+  <div class="motion-stage">
+    <div class="motion-mark">
+      <svg id="motionSvg" viewBox="0 0 220 200" fill="none">
+        <circle cx="30" cy="40" r="4" fill="#8B7CF6" opacity="0.7"/>
+        <circle cx="18" cy="100" r="4" fill="#8B7CF6" opacity="0.7"/>
+        <circle cx="30" cy="160" r="4" fill="#8B7CF6" opacity="0.7"/>
+        <path class="m-in" d="M30,40 C60,55 78,75 97,97" stroke="#8B7CF6" stroke-width="2.5" stroke-linecap="round"/>
+        <path class="m-in" d="M18,100 C45,100 72,100 97,100" stroke="#8B7CF6" stroke-width="2.5" stroke-linecap="round"/>
+        <path class="m-in" d="M30,160 C60,145 78,125 97,103" stroke="#8B7CF6" stroke-width="2.5" stroke-linecap="round"/>
+        <path id="m-out" d="M109,97 C132,86 156,76 180,63" stroke="#6EE7F9" stroke-width="3.5" stroke-linecap="round"/>
+        <circle id="m-node" cx="103" cy="100" r="11" fill="#5A48D8"/>
+        <circle id="m-term" cx="183" cy="61" r="5" fill="#6EE7F9"/>
+      </svg>
+    </div>
+    <div class="state-toggle">
+      <button class="state-btn active" data-state="idle"><span class="sw" style="background:#6EE7F9;"></span>Idle</button>
+      <button class="state-btn" data-state="thinking"><span class="sw" style="background:#8B7CF6;"></span>Thinking</button>
+      <button class="state-btn" data-state="alert"><span class="sw" style="background:#E14B4B;"></span>Alert</button>
+    </div>
+    <div class="state-desc" id="stateDesc">A slow, single pulse at the signal terminal — nothing needs attention right now.</div>
+  </div>
+</section>
+
+<!-- ============ COLOR & TYPE ============ -->
+<section id="system">
+  <div class="eyebrow">03 — Color &amp; Type</div>
+  <h2>Built to extend the product's existing palette, not replace it.</h2>
+  <p class="lede">Every shipped NeuronOS screen already lives in this indigo family. The brand system doesn't introduce a new palette — it names the one already in use, and adds exactly one new color reserved for a single job.</p>
+
+  <div class="swatches">
+    <div class="swatch">
+      <div class="chip" style="background:#5A48D8;"></div>
+      <div class="meta"><div class="name">Signal Indigo</div><div class="hex">#5A48D8</div><div class="role">Primary — the central node, primary buttons, the product's core accent.</div></div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background:#8B7CF6;"></div>
+      <div class="meta"><div class="name">Neuron Violet</div><div class="hex">#8B7CF6</div><div class="role">Inputs, secondary accents, hover states.</div></div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background:#6EE7F9;"></div>
+      <div class="meta"><div class="name">Spark Cyan</div><div class="hex">#6EE7F9</div><div class="role">New. Reserved only for "signal leaving the system" — the output stroke, live confirmations.</div></div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background:#0F0B24;"></div>
+      <div class="meta"><div class="name">Deep Field</div><div class="hex">#0F0B24</div><div class="role">Brand-context dark — tinted violet-black, not neutral black.</div></div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background:#F7F6FB;"></div>
+      <div class="meta"><div class="name">Paper</div><div class="hex">#F7F6FB</div><div class="role">Product UI background — unchanged from what's already shipped.</div></div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background:#1B1D28;"></div>
+      <div class="meta"><div class="name">Ink</div><div class="hex">#1B1D28</div><div class="role">Body text on light surfaces — unchanged from what's already shipped.</div></div>
+    </div>
+  </div>
+
+  <div class="type-rows">
+    <div class="type-row">
+      <div class="role-label">Display</div>
+      <div class="sample display-sample">Space Grotesk — the wordmark, section heads</div>
+    </div>
+    <div class="type-row">
+      <div class="role-label">Body / UI</div>
+      <div class="sample body-sample">Inter — everything inside the actual product, unchanged from the shipped screens.</div>
+    </div>
+    <div class="type-row">
+      <div class="role-label">Technical</div>
+      <div class="sample mono-sample">JetBrains Mono — captions, coordinates, version tags, anything that reads as a measurement.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ IN THE WILD ============ -->
+<section id="wild">
+  <div class="eyebrow">04 — In the Wild</div>
+  <h2>Where the mark actually has to work.</h2>
+  <p class="lede">A logo earns its shape at 16 pixels, not at hero size. Every application below is drawn at the size it's actually used.</p>
+
+  <div class="wild-grid">
+    <div class="wild-card">
+      <div class="browser-tab"><div class="favicon"></div><div class="ttl">NeuronOS — Pulse</div></div>
+      <div class="cap">BROWSER TAB / FAVICON</div>
+    </div>
+    <div class="wild-card">
+      <div class="app-icon"><svg viewBox="0 0 24 24" fill="none"><circle cx="7" cy="6" r="1.4" fill="#fff" opacity=".85"/><circle cx="4" cy="12" r="1.4" fill="#fff" opacity=".85"/><circle cx="7" cy="18" r="1.4" fill="#fff" opacity=".85"/><path d="M7,6 C9,8 10,10 12,12" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".85"/><path d="M4,12 L12,12" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".85"/><path d="M7,18 C9,16 10,14 12,12" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".85"/><path d="M13,12 C16,11 18,10 21,8" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="2" fill="#fff"/><circle cx="21" cy="8" r="1" fill="#fff"/></svg></div>
+      <div class="cap">APP ICON — LIGHT</div>
+    </div>
+    <div class="wild-card">
+      <div class="app-icon dark"><svg viewBox="0 0 24 24" fill="none"><circle cx="7" cy="6" r="1.4" fill="#8B7CF6"/><circle cx="4" cy="12" r="1.4" fill="#8B7CF6"/><circle cx="7" cy="18" r="1.4" fill="#8B7CF6"/><path d="M7,6 C9,8 10,10 12,12" stroke="#8B7CF6" stroke-width="1.4" stroke-linecap="round"/><path d="M4,12 L12,12" stroke="#8B7CF6" stroke-width="1.4" stroke-linecap="round"/><path d="M7,18 C9,16 10,14 12,12" stroke="#8B7CF6" stroke-width="1.4" stroke-linecap="round"/><path d="M13,12 C16,11 18,10 21,8" stroke="#6EE7F9" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="2" fill="#5A48D8"/><circle cx="21" cy="8" r="1" fill="#6EE7F9"/></svg></div>
+      <div class="cap">APP ICON — DARK</div>
+    </div>
+    <div class="wild-card">
+      <div class="sidebar-mini">
+        <div class="brandrow"><div class="brandmark"></div><div class="brandname">NeuronOS</div></div>
+        <div class="row on"><div class="dot" style="background:#5A48D8;"></div>Pulse</div>
+        <div class="row"><div class="dot"></div>Customers</div>
+        <div class="row"><div class="dot"></div>AI Actions</div>
+      </div>
+      <div class="cap">PRODUCT SIDEBAR — REAL HABITAT</div>
+    </div>
+    <div class="wild-card">
+      <div class="card-mockup">
+        <div class="top"><svg class="mk" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" fill="#5A48D8"/><path d="M13,12 C16,11 18,10 21,8" stroke="#6EE7F9" stroke-width="1.6" stroke-linecap="round"/></svg><span class="nm">NeuronOS</span></div>
+        <div class="bottom">THE INTELLIGENCE LAYER FOR EVERY BUSINESS</div>
+      </div>
+      <div class="cap">BUSINESS CARD / SOCIAL CARD</div>
+    </div>
+  </div>
+</section>
+
+<footer>NEURONOS BRAND CONCEPT — V1 — INTERNAL REFERENCE, NOT FINAL LEGAL TRADEMARK CLEARANCE</footer>
+
+<script>
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- Ambient network canvas ---------- */
+  const canvas = document.getElementById('net');
+  const ctx = canvas.getContext('2d');
+  let w, h, particles = [];
+  const mouse = {x:null, y:null, r:140};
+
+  function resize(){
+    w = canvas.width = canvas.offsetWidth;
+    h = canvas.height = canvas.offsetHeight;
+  }
+  window.addEventListener('resize', resize);
+
+  function initParticles(){
+    particles = [];
+    const count = Math.min(70, Math.floor((w*h)/18000));
+    for(let i=0;i<count;i++){
+      particles.push({
+        x: Math.random()*w, y: Math.random()*h,
+        vx: (Math.random()-0.5)*0.15, vy: (Math.random()-0.5)*0.15,
+        r: Math.random()*1.4+0.6
+      });
+    }
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,w,h);
+    for(let p of particles){
+      p.x += p.vx; p.y += p.vy;
+      if(p.x<0||p.x>w) p.vx*=-1;
+      if(p.y<0||p.y>h) p.vy*=-1;
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle = 'rgba(139,124,246,0.55)';
+      ctx.fill();
+    }
+    for(let i=0;i<particles.length;i++){
+      for(let j=i+1;j<particles.length;j++){
+        const a=particles[i], b=particles[j];
+        const dx=a.x-b.x, dy=a.y-b.y;
+        const dist=Math.sqrt(dx*dx+dy*dy);
+        if(dist<110){
+          ctx.beginPath();
+          ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+          ctx.strokeStyle = 'rgba(139,124,246,'+(0.12*(1-dist/110))+')';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+      if(mouse.x!=null){
+        const dx=particles[i].x-mouse.x, dy=particles[i].y-mouse.y;
+        const dist=Math.sqrt(dx*dx+dy*dy);
+        if(dist<mouse.r){
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x,particles[i].y); ctx.lineTo(mouse.x,mouse.y);
+          ctx.strokeStyle = 'rgba(110,231,249,'+(0.35*(1-dist/mouse.r))+')';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+    }
+    if(!reduced) requestAnimationFrame(draw);
+  }
+
+  const heroEl = document.querySelector('.hero');
+  heroEl.addEventListener('mousemove', e=>{
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left; mouse.y = e.clientY - rect.top;
+  });
+  heroEl.addEventListener('mouseleave', ()=>{mouse.x=null; mouse.y=null;});
+
+  resize(); initParticles();
+  if(!reduced){ draw(); } else { draw(); } // draw once even if reduced, just no rAF loop after
+
+  /* ---------- Hero mark draw-in ---------- */
+  function setupDraw(id, delay){
+    const el = document.getElementById(id);
+    const len = el.getTotalLength();
+    el.style.strokeDasharray = len;
+    el.style.strokeDashoffset = len;
+    el.style.transition = 'none';
+    requestAnimationFrame(()=>{
+      el.style.transition = `stroke-dashoffset 1s ${delay}s cubic-bezier(.2,.8,.2,1)`;
+      el.style.strokeDashoffset = 0;
+    });
+  }
+  if(!reduced){
+    ['in1','in2','in3'].forEach((id,i)=> setupDraw(id, 0.15*i));
+    setupDraw('out', 0.7);
+    const node = document.getElementById('node');
+    node.style.transform = 'scale(0)';
+    node.style.transformOrigin = '103px 100px';
+    node.style.transition = 'transform .5s .55s cubic-bezier(.34,1.56,.64,1)';
+    requestAnimationFrame(()=> node.style.transform = 'scale(1)');
+    const term = document.getElementById('term');
+    term.style.opacity = 0;
+    term.style.transition = 'opacity .4s 1.1s';
+    requestAnimationFrame(()=> term.style.opacity = 1);
+    setTimeout(()=>{
+      term.animate([
+        {r:5, opacity:1},{r:8, opacity:.4},{r:5, opacity:1}
+      ],{duration:2200, iterations:Infinity});
+    }, 1300);
+  }
+
+  /* ---------- Motion states demo ---------- */
+  const stateBtns = document.querySelectorAll('.state-btn');
+  const mNode = document.getElementById('m-node');
+  const mTerm = document.getElementById('m-term');
+  const mIns = document.querySelectorAll('.m-in');
+  const mOut = document.getElementById('m-out');
+  const descs = {
+    idle: "A slow, single pulse at the signal terminal — nothing needs attention right now.",
+    thinking: "Inputs shimmer in sequence and the node scales faster — the Context Engine is actively reasoning over new data.",
+    alert: "The node and terminal flash to the same amber/red used for AI Action severity — this mark and the product's severity system are the same visual language."
+  };
+  let currentAnim = [];
+  function clearAnim(){ currentAnim.forEach(a=>a.cancel()); currentAnim=[]; }
+  function applyState(state){
+    clearAnim();
+    mNode.setAttribute('fill', state==='alert' ? '#E14B4B' : '#5A48D8');
+    mTerm.setAttribute('fill', state==='alert' ? '#E14B4B' : '#6EE7F9');
+    if(state==='idle'){
+      currentAnim.push(mTerm.animate([{r:5,opacity:1},{r:8,opacity:.4},{r:5,opacity:1}],{duration:2400,iterations:Infinity}));
+    } else if(state==='thinking'){
+      mIns.forEach((el,i)=>{
+        const len = el.getTotalLength();
+        el.style.strokeDasharray = len/3+' '+len;
+        currentAnim.push(el.animate([{strokeDashoffset:0},{strokeDashoffset:-len}],{duration:900,iterations:Infinity, delay:i*150, easing:'linear'}));
+      });
+      currentAnim.push(mNode.animate([{transform:'scale(1)'},{transform:'scale(1.25)'},{transform:'scale(1)'}],{duration:600,iterations:Infinity}));
+    } else if(state==='alert'){
+      currentAnim.push(mNode.animate([{opacity:1},{opacity:.3},{opacity:1}],{duration:450,iterations:6}));
+      currentAnim.push(mTerm.animate([{r:5},{r:9},{r:5}],{duration:450,iterations:6}));
+    }
+  }
+  stateBtns.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      stateBtns.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const state = btn.dataset.state;
+      document.getElementById('stateDesc').textContent = descs[state];
+      applyState(state);
+    });
+  });
+  applyState('idle');
+</script>
+
+</body>
+</html>

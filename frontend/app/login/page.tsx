@@ -1,14 +1,14 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { AuthBrandingPanel } from "@/components/shared/auth-branding-panel";
+import { AuthField } from "@/components/shared/auth-field";
 import { ApiError } from "@/lib/api-client";
 import { login, storeAuth } from "@/lib/auth";
 
@@ -22,6 +22,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [remember, setRemember] = useState(true);
   const {
     register,
     handleSubmit,
@@ -32,7 +33,7 @@ export default function LoginPage() {
     setServerError(null);
     try {
       const result = await login(values);
-      storeAuth(result);
+      storeAuth(result, remember);
       router.push("/pulse");
     } catch (err) {
       setServerError(err instanceof ApiError ? err.message : "Something went wrong. Try again.");
@@ -40,49 +41,62 @@ export default function LoginPage() {
   }
 
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ background: "var(--neuron-bg)" }}
-    >
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="w-full max-w-sm rounded-2xl p-8"
-        style={{
-          background: "var(--neuron-card)",
-          border: "1px solid var(--neuron-border)",
-          boxShadow: "var(--neuron-shadow)",
-        }}
-      >
-        <h1 className="text-[20px] font-bold tracking-tight">Log in to NeuronOS</h1>
+    <div className="grid min-h-screen grid-cols-2" style={{ background: "#fff" }}>
+      <AuthBrandingPanel />
+      <div className="flex items-center justify-center p-8">
+        <motion.form
+          onSubmit={handleSubmit(onSubmit)}
+          className="w-full max-w-sm"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <h1 className="text-[34px] leading-[1.1] font-bold tracking-tight">
+            Welcome <span style={{ color: "var(--neuron-primary)" }} className="italic">back.</span>
+          </h1>
+          <p className="mt-2 text-[13.5px]" style={{ color: "var(--neuron-text-dim)" }}>
+            New here?{" "}
+            <Link href="/signup" className="font-semibold" style={{ color: "var(--neuron-primary)" }}>
+              Create an account
+            </Link>
+          </p>
 
-        <div className="mt-6 flex flex-col gap-4">
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" {...register("email")} />
-            {errors.email && <p className="mt-1 text-[12px] text-red-600">{errors.email.message}</p>}
+          <div className="mt-7 flex flex-col gap-4">
+            <AuthField icon="mail" label="Email" type="email" placeholder="you@example.com" {...register("email")} />
+            {errors.email && <p className="-mt-3 text-[12px] text-red-600">{errors.email.message}</p>}
+
+            <AuthField icon="lock" label="Password" type="password" placeholder="••••••••" {...register("password")} />
+            {errors.password && <p className="-mt-3 text-[12px] text-red-600">{errors.password.message}</p>}
           </div>
-          <div>
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" {...register("password")} />
-            {errors.password && (
-              <p className="mt-1 text-[12px] text-red-600">{errors.password.message}</p>
-            )}
-          </div>
-        </div>
 
-        {serverError && <p className="mt-4 text-[12.5px] text-red-600">{serverError}</p>}
+          <label className="mt-4 flex cursor-pointer items-center gap-2 text-[12.5px]" style={{ color: "var(--neuron-text-dim)" }}>
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              className="h-4 w-4 rounded accent-[var(--neuron-primary)]"
+            />
+            Remember me
+          </label>
 
-        <Button type="submit" disabled={isSubmitting} className="mt-6 w-full">
-          {isSubmitting ? "Logging in…" : "Log in"}
-        </Button>
+          {serverError && <p className="mt-4 text-[12.5px] text-red-600">{serverError}</p>}
 
-        <p className="mt-4 text-center text-[12.5px]" style={{ color: "var(--neuron-text-dim)" }}>
-          Need an organization?{" "}
-          <Link href="/signup" className="font-medium" style={{ color: "var(--neuron-primary)" }}>
-            Create one
-          </Link>
-        </p>
-      </form>
+          <motion.button
+            type="submit"
+            disabled={isSubmitting}
+            whileTap={{ scale: 0.98 }}
+            className="mt-6 h-12 w-full rounded-xl text-[14px] font-bold text-white shadow-lg disabled:opacity-60"
+            style={{ background: "linear-gradient(135deg,var(--neuron-primary),var(--neuron-primary-dark))", boxShadow: "0 10px 24px rgba(108,92,231,0.3)" }}
+          >
+            {isSubmitting ? "Signing in…" : "Sign in"}
+          </motion.button>
+
+          <p className="mt-5 text-center text-[11.5px]" style={{ color: "var(--neuron-text-faint)" }}>
+            By continuing, you agree to NeuronOS&apos;s approve-first terms — nothing acts on your
+            business without your say.
+          </p>
+        </motion.form>
+      </div>
     </div>
   );
 }

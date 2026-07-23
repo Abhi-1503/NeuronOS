@@ -31,13 +31,24 @@ const AUTH_STORAGE_KEY = "neuronos_auth";
 // Stores the full result (not just the token) since Phase 0 has no `GET /organization`/
 // `GET /me` endpoint yet (that's Settings module, Phase 1) — the shell reads org/user
 // display info back from here instead of a round-trip that doesn't exist.
-export function storeAuth(result: AuthResult) {
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(result));
+//
+// "Remember me" (login page) is real, not decorative: checked writes to localStorage
+// (survives closing the browser), unchecked writes to sessionStorage (cleared when the
+// tab closes) — an actual behavior difference, not a checkbox that does nothing.
+export function storeAuth(result: AuthResult, remember: boolean = true) {
+  const raw = JSON.stringify(result);
+  if (remember) {
+    sessionStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.setItem(AUTH_STORAGE_KEY, raw);
+  } else {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    sessionStorage.setItem(AUTH_STORAGE_KEY, raw);
+  }
 }
 
 export function getStoredAuth(): AuthResult | null {
   if (typeof window === "undefined") return null;
-  const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+  const raw = localStorage.getItem(AUTH_STORAGE_KEY) ?? sessionStorage.getItem(AUTH_STORAGE_KEY);
   if (!raw) return null;
   try {
     return JSON.parse(raw) as AuthResult;
@@ -52,6 +63,7 @@ export function getStoredToken(): string | null {
 
 export function clearStoredToken() {
   localStorage.removeItem(AUTH_STORAGE_KEY);
+  sessionStorage.removeItem(AUTH_STORAGE_KEY);
 }
 
 export function signup(input: {

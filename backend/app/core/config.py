@@ -53,6 +53,22 @@ class Settings(BaseSettings):
 
     cors_allowed_origins: list[str] = ["http://localhost:3000"]
 
+    # Knowledge module (Roadmap Phase 1) — local filesystem storage, not Cloudflare R2
+    # (Blueprint §8's stated production choice): no R2 credentials exist in this
+    # environment. Same StorageBackend interface either way (app/services/storage.py),
+    # so swapping to R2 later is a config/implementation change, not a rewrite —
+    # "connect, don't replace" applied to infrastructure, not just product integrations.
+    local_storage_dir: str = "./data/documents"
+
+    # AI Workspace / Knowledge summarization + RAG — genuinely optional. Both are real,
+    # working integrations when a key is present; with no key, each feature degrades to
+    # an honest non-LLM fallback (documented at its call site) rather than faking a
+    # response or refusing to work at all. No live call is made anywhere in this codebase
+    # without one of these being explicitly set — nothing calls out to a paid API by
+    # accident just because the SDK is installed.
+    anthropic_api_key: str | None = None
+    openai_api_key: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

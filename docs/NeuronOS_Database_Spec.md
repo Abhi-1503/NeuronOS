@@ -356,7 +356,7 @@ Join table — a project has many team members, a user is on many projects.
 | document_id | UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE | |
 | chunk_index | INTEGER NOT NULL | ordering within the document |
 | content | TEXT NOT NULL | |
-| embedding | VECTOR(1536) NOT NULL | dimension depends on embedding model chosen — confirm before migration |
+| embedding | VECTOR(1536), nullable | **Resolved during Phase 1 Knowledge implementation (migration `0003`):** was `NOT NULL`, but Roadmap Phase 1's actual Knowledge scope is keyword search, not semantic search — embeddings are a real feature (OpenAI's embeddings API, model chosen to match this dimension) gated behind an optional `OPENAI_API_KEY`. Requiring an embedding to exist before a chunk could even be stored made keyword-only search impossible without an API key, contradicting Phase 1's own scope. `NULL` here just means "not yet embedded," not "broken." |
 | created_at | TIMESTAMPTZ NOT NULL DEFAULT now() | |
 
 **Indexes:**
@@ -416,7 +416,7 @@ Used to connect a Document to whatever it relates to (Customer, Project, Meeting
 | is_active | BOOLEAN NOT NULL DEFAULT true | whether the automation is enabled at all, independent of `mode` |
 | trigger_type | TEXT NOT NULL | CHECK IN ('invoice_overdue','no_reply_days','project_completed','contract_expiring','new_customer') |
 | trigger_config | JSONB NOT NULL | e.g. `{"days": 3}` |
-| action_type | TEXT NOT NULL | CHECK IN ('send_email','create_task','notify_user','send_invoice_reminder') — **consistency note (added this pass):** when a `graduating`-mode automation creates an `ai_actions` row (§6.1's state machine), that row's `action_type` must be one already present in `action_type_registry` (§7.1). `send_email` here is a broader category than the `ai_actions` registry's more specific `send_followup_email`/`send_contract_email` — the application layer mapping from an automation's `action_type` to the specific `ai_actions.action_type` it creates needs to be explicit (e.g., a `send_email` automation with `action_config.tone = 'contract'` maps to `send_contract_email`), not assumed to be a 1:1 passthrough. This mapping should be defined before the Phase 2 automation builder ships, since it's exactly the kind of implicit assumption that produces a wrong severity tier silently. |
+| action_type | TEXT NOT NULL REFERENCES action_type_registry(action_type) | **Resolved during Phase 1 Automations implementation:** this was previously its own, separate `CHECK` constraint (`send_email`, `create_task`, `notify_user`, `send_invoice_reminder`) that never actually matched `action_type_registry`'s real values (`send_followup_email`, `create_task`, `prepare_meeting_brief`, `send_contract_email`, `generate_invoice`, `send_invoice_reminder`) — the exact drift this table's Open Item #18 warned about, now surfaced for real once a `graduating`-mode automation needed to create an `ai_actions` row using this value. Fixed the same way `ai_actions.action_type` already was (§7.1): a real foreign key into `action_type_registry`, so there is exactly one place these values are defined, not two lists that can silently disagree. |
 | action_config | JSONB NOT NULL | |
 | graduation_threshold | INTEGER NOT NULL DEFAULT 5 | number of approved runs required in `graduating` mode before auto-promoting to `live` |
 | approved_run_count | INTEGER NOT NULL DEFAULT 0 | increments each time a `graduating`-mode run is approved via the AI Actions queue; resets to 0 if a run is rejected (a rejection is a signal the trigger/action logic needs revisiting, not just "one more try") |
@@ -602,6 +602,37 @@ NeuronOS uses a consistent `(_type, _id)` pair rather than a single generic fore
 
 ---
 
+## 8A. AI Workspace (Chat)
+
+**Gap addressed:** API Spec §6 documents `POST /chat/messages`, `GET /chat/conversations`, and `GET /chat/conversations/{id}`, but this document never defined a table for either entity — the AI Workspace had zero backing schema (Phase 1 Roadmap scope, resolved via migration 0005).
+
+### 8A.1 `conversations`
+
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| organization_id | UUID NOT NULL | tenant-scoped, standard `tenant_isolation` RLS policy |
+| user_id | UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE | owner of the conversation |
+| title | TEXT | derived from the first message; nullable |
+| created_at / updated_at | — | standard; `updated_at` bumps whenever a new message is appended, so `GET /chat/conversations` can order by "most recently active" |
+
+**Permissions note:** "own conversations only" (API Spec §6) is enforced at the application layer by filtering on `user_id` — RLS's `tenant_isolation` policy only enforces the organization boundary, the same division of responsibility used for `ai_actions.assigned_to_user_id` scoping.
+
+### 8A.2 `chat_messages`
+
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| conversation_id | UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE | |
+| role | TEXT NOT NULL | CHECK IN ('user','assistant') |
+| content | TEXT NOT NULL | |
+| citations | JSONB | list of `{type, id, excerpt}`; null for user messages |
+| created_at | TIMESTAMPTZ NOT NULL | |
+
+Only indirectly tenant-scoped (joined through `conversation_id`) — no RLS policy of its own, consistent with `document_chunks` relative to `documents` (§5.2).
+
+---
+
 ## 9. Migration & Versioning Notes
 
 **Decision record — full schema built in Phase 0, app code scoped per phase (resolved this pass):** this document covers all MVP + Phase 2 entities in one pass, but the Roadmap explicitly excludes the Projects, Meetings, and Automations-builder modules from Phase 1. Rather than leave it ambiguous whether Phase 0's initial migration should create only Phase-1-relevant tables or everything, the decision is: **Phase 0 creates the full schema below — every table in this document — via Alembic, in one coherent migration set.** Application/API/service-layer code is still built strictly per the Roadmap's phase scope (e.g., no `Project`/`Meeting`/`Automation` routes or services exist until their phase arrives) — the tables simply sit unused until then. This is the cheaper direction to be wrong in: adding a nullable column or a new table later is a low-risk additive migration, while retrofitting foreign keys (e.g., `projects.customer_id`, `tasks.source_meeting_id`) onto tables that already have production data is genuinely painful. The risk this accepts is a schema that's briefly ahead of the product surface — acceptable, since unused tables carry no runtime cost and this repo's migration history is the actual source of truth for "what exists," not a proxy for "what's shipped" (that's what the Roadmap phase gates are for).
@@ -631,7 +662,7 @@ NeuronOS uses a consistent `(_type, _id)` pair rather than a single generic fore
 15. **[Resolved this pass]** No schema support for ToS acceptance or DPA tracking — see `organizations.terms_accepted_version`/`terms_accepted_at`/`dpa_signed_at` (§1.1). Full security/liability posture content is in `NeuronOS_Trust_Security_FAQ.md`.
 16. **[Fixed during verification pass]** A real section-ordering bug — §1.3 (Cold-Start Onboarding State) had been inserted before §1.2 (`users`) during editing, so the document read out of sequence. Corrected.
 17. **[Fixed during verification pass]** `ai_actions.action_type` had no constraint at all (freeform text with only "e.g." examples), while a separate severity-mapping table implied a fixed set of values with specific severity/reversibility — nothing in the schema actually enforced the connection between the two. Fixed by adding `action_type_registry` (§7.1) as the single source of truth, with `ai_actions.action_type` as a real foreign key into it, and application logic populating `severity_tier`/`is_reversible` from the registry rather than trusting each engine to set them correctly per instance.
-18. **[Fixed during verification pass]** `automations.action_type`'s value set (`send_email`, etc.) didn't obviously map onto the more specific `ai_actions.action_type` values (`send_followup_email`, `send_contract_email`) used once a `graduating`-mode automation creates an AI Action — flagged with an explicit note that this mapping needs to be defined before the Phase 2 automation builder ships, not assumed to be 1:1.
+18. **[Resolved during Phase 1 Automations implementation]** `automations.action_type`'s value set (`send_email`, etc.) never actually matched `ai_actions.action_type`'s registry values, exactly as this item warned. Rather than define a mapping between two permanently-separate vocabularies, `automations.action_type` is now a real foreign key into `action_type_registry` (migration `0002_automations_action_type_fk`) — the same registry `ai_actions.action_type` already uses, so a `graduating`-mode automation's `action_type` is, by construction, always a value `ai_actions` already understands.
 19. **New open item (surfaced during verification):** `score_history` (§7.5) is append-only with no retention/downsampling policy — will grow unbounded if a snapshot is written on every recompute. Needs a policy (cap write frequency, or downsample old data) before Phase 2 usage volume makes this a real storage/performance concern.
 20. **[Resolved this pass]** Login had no way to disambiguate a per-org-unique email across two organizations, since `POST /auth/login` takes only `{email, password}` with no org selector — resolved by making `email` globally unique (§1.2 decision record), consistent with multi-org-per-person being out of scope for MVP (item 4 above).
 21. **[Resolved this pass]** No endpoint or schema support existed for an invited user to actually accept an invitation and set a password — `users.password_hash` starts NULL at invite time, and `invitation_token_hash`/`invitation_expires_at` (§1.2) back the new `POST /auth/invitations/{token}/accept` endpoint (API Spec §1). Without this, Phase 0's own exit criteria ("invite a teammate") could not actually be completed end-to-end.

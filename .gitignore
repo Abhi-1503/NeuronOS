@@ -24,3 +24,8 @@ venv/
 # Build artifacts
 dist/
 build/
+
+# Local document storage (Knowledge module's LocalFileStorage — app/core/config.py's
+# local_storage_dir default, a Phase 1 substitute for Cloudflare R2) — runtime data,
+# not source.
+backend/data/

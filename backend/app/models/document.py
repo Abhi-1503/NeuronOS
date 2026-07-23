@@ -34,6 +34,7 @@ class Document(UUIDPKMixin, TenantMixin, CreatedAtMixin, UpdatedAtMixin, Created
     storage_key: Mapped[str] = mapped_column(Text, nullable=False)
     size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    content_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
     visibility: Mapped[str] = mapped_column(Text, nullable=False, default="org")
     source: Mapped[str] = mapped_column(Text, nullable=False, default="manual")
 
@@ -41,7 +42,10 @@ class Document(UUIDPKMixin, TenantMixin, CreatedAtMixin, UpdatedAtMixin, Created
 class DocumentChunk(UUIDPKMixin, Base):
     """Database Spec §5.2. Embedding dimensionality (1536) is locked in at the first
     migration touching this table — confirm the embedding model before that migration ships
-    (Database Spec §9's hardest-to-reverse schema decision)."""
+    (Database Spec §9's hardest-to-reverse schema decision). `embedding` is nullable
+    (migration 0003) — a chunk supports keyword search over `content` on its own;
+    embeddings are populated only when `OPENAI_API_KEY` is configured (optional at
+    Phase 1)."""
 
     __tablename__ = "document_chunks"
 
@@ -50,7 +54,7 @@ class DocumentChunk(UUIDPKMixin, Base):
     )
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    embedding: Mapped[list[float]] = mapped_column(Vector(1536), nullable=False)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
     created_at: Mapped[datetime] = mapped_column(nullable=False)
 
 
